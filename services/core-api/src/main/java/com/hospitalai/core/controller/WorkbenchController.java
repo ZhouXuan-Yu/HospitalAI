@@ -5,6 +5,10 @@ import com.hospitalai.core.model.Dto.DecisionResponse;
 import com.hospitalai.core.model.Dto.DoseRequest;
 import com.hospitalai.core.model.Dto.DoseResponse;
 import com.hospitalai.core.model.Dto.EvidenceChunkSummary;
+import com.hospitalai.core.model.Dto.EvidenceDocumentRequest;
+import com.hospitalai.core.model.Dto.EvidenceDocumentSummary;
+import com.hospitalai.core.model.Dto.EvidenceLifecycleResponse;
+import com.hospitalai.core.model.Dto.EvidenceParseRequest;
 import com.hospitalai.core.model.Dto.RuleLifecycleResponse;
 import com.hospitalai.core.model.Dto.RuleUpsertRequest;
 import com.hospitalai.core.model.Dto.SnapshotImportRequest;
@@ -14,6 +18,7 @@ import com.hospitalai.core.model.Dto.WorklistItem;
 import com.hospitalai.core.model.Dto.RuleGovernancePayload;
 import com.hospitalai.core.repository.WorkbenchRepository;
 import com.hospitalai.core.service.DoseCalculationService;
+import com.hospitalai.core.service.EvidenceGovernanceService;
 import com.hospitalai.core.service.HisSnapshotImportService;
 import com.hospitalai.core.service.RecommendationService;
 import com.hospitalai.core.service.RuleGovernanceService;
@@ -33,13 +38,15 @@ public class WorkbenchController {
   private final HisSnapshotImportService importService;
   private final RuleGovernanceService ruleGovernanceService;
   private final DoseCalculationService doseCalculationService;
+  private final EvidenceGovernanceService evidenceGovernanceService;
 
-  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService) {
+  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService, EvidenceGovernanceService evidenceGovernanceService) {
     this.service = service;
     this.repository = repository;
     this.importService = importService;
     this.ruleGovernanceService = ruleGovernanceService;
     this.doseCalculationService = doseCalculationService;
+    this.evidenceGovernanceService = evidenceGovernanceService;
   }
 
   @GetMapping("/worklist")
@@ -80,6 +87,31 @@ public class WorkbenchController {
   @GetMapping("/evidence/chunks")
   public List<EvidenceChunkSummary> evidenceChunks(@RequestParam(defaultValue = "社区获得性肺炎") String query) {
     return repository.publishedEvidenceChunks(query);
+  }
+
+  @GetMapping("/evidence/documents")
+  public List<EvidenceDocumentSummary> evidenceDocuments() {
+    return repository.evidenceDocuments();
+  }
+
+  @PostMapping("/evidence/documents")
+  public EvidenceLifecycleResponse uploadEvidence(@RequestBody EvidenceDocumentRequest request) {
+    return evidenceGovernanceService.upload(request);
+  }
+
+  @PostMapping("/evidence/documents/{evidenceId}/parse")
+  public EvidenceLifecycleResponse parseEvidence(@PathVariable String evidenceId, @RequestBody(required = false) EvidenceParseRequest request) {
+    return evidenceGovernanceService.parse(evidenceId, request);
+  }
+
+  @PostMapping("/evidence/documents/{evidenceId}/publish")
+  public EvidenceLifecycleResponse publishEvidence(@PathVariable String evidenceId) {
+    return evidenceGovernanceService.publish(evidenceId);
+  }
+
+  @PostMapping("/evidence/documents/{evidenceId}/withdraw")
+  public EvidenceLifecycleResponse withdrawEvidence(@PathVariable String evidenceId) {
+    return evidenceGovernanceService.withdraw(evidenceId);
   }
 
   @GetMapping("/workbench/{encounterId}")

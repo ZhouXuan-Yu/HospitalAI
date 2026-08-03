@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -65,6 +67,10 @@ def retrieve_evidence(request: EvidenceRequest) -> dict[str, Any]:
             "explanationDraft": "证据不足：当前演示证据集只覆盖呼吸内科 CAP 试点。",
         }
 
+    core_result = retrieve_core_published_chunks(request)
+    if core_result:
+        return core_result
+
     keywords = {str(fact) for fact in request.facts}
     ranked = DEMO_SNIPPETS.copy()
     if "确认过敏" in keywords:
@@ -81,4 +87,56 @@ def retrieve_evidence(request: EvidenceRequest) -> dict[str, Any]:
         ],
         "snippets": ranked,
         "explanationDraft": "解释草稿仅基于演示证据和结构化事实，不能替代医生或药师审核。",
+    }
+
+
+def retrieve_core_published_chunks(request: EvidenceRequest) -> dict[str, Any] | None:
+    base_url = os.getenv("CORE_API_BASE_URL", "").rstrip("/")
+    if not base_url:
+        return None
+    try:
+        response = httpx.get(
+            f"{base_url}/api/evidence/chunks",
+            params={"query": request.diagnosis},
+            timeout=2.0,
+        )
+        response.raise_for_status()
+        chunks = response.json()
+    except Exception as exc:
+        return {
+            "status": "core_evidence_degraded",
+            "pipeline": ["metadata_filter", "core_api_published_chunk_retrieval", "fallback_required"],
+            "snippets": [],
+            "explanationDraft": f"Core API 证据检索不可用，禁止补写理由：{exc}",
+        }
+    if not chunks:
+        return {
+            "status": "insufficient_evidence",
+            "pipeline": ["metadata_filter", "core_api_published_chunk_retrieval"],
+            "snippets": [],
+            "explanationDraft": "证据不足：Core API 未返回已发布证据切片。",
+        }
+    snippets = [
+        {
+            "evidenceId": item["evidenceId"],
+            "title": item["title"],
+            "status": item["status"],
+            "version": item["version"],
+            "effectiveDate": item.get("effectiveDate", ""),
+            "locator": item["locator"],
+            "text": item["chunkText"],
+            "score": round(0.9 - index * 0.03, 2),
+        }
+        for index, item in enumerate(chunks[:3])
+    ]
+    return {
+        "status": "published_core_evidence",
+        "pipeline": [
+            "metadata_filter",
+            "core_api_published_chunk_retrieval",
+            "rerank_deterministic",
+            "explanation_draft",
+        ],
+        "snippets": snippets,
+        "explanationDraft": "解释草稿仅基于 Core API 已发布证据切片和结构化事实，不能替代医生或药师审核。",
     }

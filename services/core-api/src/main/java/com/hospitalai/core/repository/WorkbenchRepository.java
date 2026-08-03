@@ -186,10 +186,10 @@ public class WorkbenchRepository {
   public List<EvidenceChunkSummary> publishedEvidenceChunks(String query) {
     String pattern = "%" + query + "%";
     return jdbc.query("""
-        SELECT c.chunk_id, d.evidence_id, d.title, d.status, d.version, d.locator, c.chunk_text, c.keywords
+        SELECT c.chunk_id, d.evidence_id, d.title, d.status, d.version, d.effective_date, d.locator, c.chunk_text, c.keywords
         FROM evidence_chunk c JOIN evidence_document d ON d.evidence_id = c.evidence_id
         WHERE c.status = 'published' AND d.status = 'published'
-          AND (c.keywords LIKE ? OR c.chunk_text LIKE ? OR d.scope LIKE ?)
+          AND (c.keywords LIKE ? OR c.chunk_text LIKE ? OR d.scope LIKE ? OR d.title LIKE ?)
         ORDER BY d.effective_date DESC, c.chunk_id
         """, (rs, row) -> new EvidenceChunkSummary(
         rs.getString(1),
@@ -197,9 +197,81 @@ public class WorkbenchRepository {
         rs.getString(3),
         rs.getString(4),
         rs.getString(5),
-        rs.getString(6),
+        rs.getDate(6).toString(),
         rs.getString(7),
-        rs.getString(8)), pattern, pattern, pattern);
+        rs.getString(8),
+        rs.getString(9)), pattern, pattern, pattern, pattern);
+  }
+
+  public List<EvidenceDocumentSummary> evidenceDocuments() {
+    return jdbc.query("""
+        SELECT evidence_id, title, status, version, effective_date, scope, locator
+        FROM evidence_document
+        ORDER BY effective_date DESC, evidence_id
+        """, (rs, row) -> new EvidenceDocumentSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getDate(5).toString(),
+        rs.getString(6),
+        rs.getString(7)));
+  }
+
+  public void upsertEvidenceDocument(EvidenceDocumentRequest request, String status) {
+    if (exists("evidence_document", "evidence_id", request.evidenceId())) {
+      jdbc.update("""
+          UPDATE evidence_document
+          SET title = ?, status = ?, version = ?, effective_date = ?, scope = ?, locator = ?, text = ?
+          WHERE evidence_id = ?
+          """, request.title(), status, request.version(), request.effectiveDate(), request.scope(), request.locator(), request.text(), request.evidenceId());
+    } else {
+      jdbc.update("""
+          INSERT INTO evidence_document(evidence_id, title, status, version, effective_date, scope, locator, text)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          """, request.evidenceId(), request.title(), status, request.version(), request.effectiveDate(), request.scope(), request.locator(), request.text());
+    }
+  }
+
+  public void updateEvidenceStatus(String evidenceId, String status) {
+    int updated = jdbc.update("UPDATE evidence_document SET status = ? WHERE evidence_id = ?", status, evidenceId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("evidence document not found: " + evidenceId);
+    }
+    jdbc.update("UPDATE evidence_chunk SET status = ? WHERE evidence_id = ?", status, evidenceId);
+  }
+
+  public String evidenceText(String evidenceId) {
+    var values = jdbc.query("SELECT text FROM evidence_document WHERE evidence_id = ?", rs -> rs.next() ? rs.getString(1) : null, evidenceId);
+    if (values == null) {
+      throw new IllegalArgumentException("evidence document not found: " + evidenceId);
+    }
+    return values;
+  }
+
+  public int replaceEvidenceBlocksAndChunks(String evidenceId, String blockType, List<String> blockTexts, String chunkStatus) {
+    jdbc.update("DELETE FROM evidence_chunk WHERE evidence_id = ?", evidenceId);
+    jdbc.update("DELETE FROM document_block WHERE evidence_id = ?", evidenceId);
+    int count = 0;
+    for (int i = 0; i < blockTexts.size(); i++) {
+      String text = blockTexts.get(i);
+      String blockId = evidenceId + "-B" + (i + 1);
+      String chunkId = evidenceId + "-C" + (i + 1);
+      jdbc.update("""
+          INSERT INTO document_block(block_id, evidence_id, block_type, page_label, sort_order, text)
+          VALUES (?, ?, ?, ?, ?, ?)
+          """, blockId, evidenceId, blockType, "auto-" + (i + 1), i + 1, text);
+      jdbc.update("""
+          INSERT INTO evidence_chunk(chunk_id, evidence_id, block_id, chunk_text, keywords, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          """, chunkId, evidenceId, blockId, text, keywords(text), chunkStatus, Instant.now());
+      count++;
+    }
+    return count;
+  }
+
+  private static String keywords(String text) {
+    return text.replaceAll("[，。；、\\s]+", ",");
   }
 
   public void insertDecision(String decisionId, String recommendationId, String encounterId, DecisionRequest request, String actor) {

@@ -51,6 +51,8 @@ npm --prefix apps/web run dev -- --host 127.0.0.1
 
 Current verified URL: http://127.0.0.1:5174
 
+Set `CORE_API_BASE_URL=http://127.0.0.1:18080` for the AI service when you want evidence retrieval to use Core API published evidence chunks instead of the deterministic demo fallback.
+
 ## Useful API Smoke Checks
 
 ```powershell

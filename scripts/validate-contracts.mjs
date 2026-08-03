@@ -29,7 +29,11 @@ const requiredCorePaths = [
   '/api/rules/{ruleId}/versions/{version}/publish',
   '/api/rules/{ruleId}/versions/{version}/withdraw',
   '/api/dose/calculate',
-  '/api/evidence/chunks'
+  '/api/evidence/chunks',
+  '/api/evidence/documents',
+  '/api/evidence/documents/{evidenceId}/parse',
+  '/api/evidence/documents/{evidenceId}/publish',
+  '/api/evidence/documents/{evidenceId}/withdraw'
 ]
 const requiredHisPaths = [
   '/v1/his/patients/{hisPatientId}/snapshot',

@@ -66,6 +66,51 @@ class DoseAndEvidenceGovernanceApiTest {
   }
 
   @Test
+  void uploadsParsesPublishesAndWithdrawsEvidenceDocument() throws Exception {
+    mvc.perform(post("/api/evidence/documents")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "evidenceId": "EV-UP-001",
+                  "title": "上传证据测试",
+                  "version": "2026.09",
+                  "effectiveDate": "2026-09-01",
+                  "scope": "呼吸内科/社区获得性肺炎",
+                  "locator": "上传文件第1页",
+                  "text": "第一段：发布后可检索 CAP 测试证据。\\n第二段：撤回后不得参与正式检索。"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("uploaded")));
+
+    mvc.perform(post("/api/evidence/documents/EV-UP-001/parse")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "parserVersion": "deterministic-paragraph-v1", "blockType": "paragraph" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("review_pending")))
+        .andExpect(jsonPath("$.blockCount", is(2)))
+        .andExpect(jsonPath("$.chunkCount", is(2)));
+
+    mvc.perform(post("/api/evidence/documents/EV-UP-001/publish"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("published")));
+
+    mvc.perform(get("/api/evidence/chunks").param("query", "上传证据测试"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].evidenceId", hasItem("EV-UP-001")));
+
+    mvc.perform(post("/api/evidence/documents/EV-UP-001/withdraw"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("withdrawn")));
+
+    mvc.perform(get("/api/evidence/chunks").param("query", "上传证据测试"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].evidenceId", not(hasItem("EV-UP-001"))));
+  }
+
+  @Test
   void supportsRuleDraftReviewPublishAndWithdrawLifecycle() throws Exception {
     mvc.perform(post("/api/rules")
             .contentType(MediaType.APPLICATION_JSON)

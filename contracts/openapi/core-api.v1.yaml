@@ -72,6 +72,35 @@ paths:
       responses:
         "200":
           description: Published evidence chunks only.
+  /api/evidence/documents:
+    get:
+      summary: List evidence documents with governance status.
+      responses:
+        "200":
+          description: Evidence document list.
+    post:
+      summary: Upload or register an evidence document as uploaded status.
+      responses:
+        "200":
+          description: Evidence lifecycle status.
+  /api/evidence/documents/{evidenceId}/parse:
+    post:
+      summary: Parse an evidence document into document blocks and evidence chunks.
+      responses:
+        "200":
+          description: Evidence parse status.
+  /api/evidence/documents/{evidenceId}/publish:
+    post:
+      summary: Publish reviewed evidence document and chunks.
+      responses:
+        "200":
+          description: Evidence publish status.
+  /api/evidence/documents/{evidenceId}/withdraw:
+    post:
+      summary: Withdraw evidence document and chunks from formal retrieval.
+      responses:
+        "200":
+          description: Evidence withdraw status.
   /api/integration/his/snapshots/import:
     post:
       summary: Import a versioned HIS snapshot into the unified medical model.

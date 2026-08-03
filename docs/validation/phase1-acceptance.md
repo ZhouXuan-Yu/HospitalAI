@@ -125,8 +125,8 @@ New evidence:
 Remaining M2 gaps:
 
 - Rule governance UI is still pending.
-- Evidence document upload, parsing worker, manual review UI and withdraw API are still pending.
-- FastAPI RAG direct database retrieval is still pending; Core API published-only retrieval is available.
+- Evidence manual review UI and real file parsing worker are still pending.
+- FastAPI can retrieve Core API published chunks through `CORE_API_BASE_URL`; direct PostgreSQL/pgvector retrieval is still pending.
 - Dose calculator still needs richer hospital rule dimensions, unit tests for renal adjustment and special populations, and hospital-reviewed numeric bounds before production.
 
 ## 2026-08-03 Dose And Evidence Governance Validation
@@ -154,3 +154,33 @@ New evidence:
 - `/api/rules` lifecycle supports draft, submit-review, publish and withdraw, with audit readback.
 - `/api/dose/calculate` returns deterministic guidance from published `dose_rule`; unknown drug/rule returns `rule_not_found`.
 - `/api/evidence/chunks` returns only `published` chunks and excludes `demo_unpublished` evidence from formal retrieval.
+
+## 2026-08-03 Evidence Lifecycle And AI Retrieval Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm run test:contracts
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+git diff --check
+```
+
+Results:
+
+- Java: 10 passed, 0 failed.
+- Python: 4 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+- Whitespace check: passed.
+
+New evidence:
+
+- `/api/evidence/documents` uploads evidence as `uploaded`.
+- `/api/evidence/documents/{evidenceId}/parse` creates `DocumentBlock` and `EvidenceChunk` rows with `review_pending`.
+- `/api/evidence/documents/{evidenceId}/publish` makes chunks visible through `/api/evidence/chunks`.
+- `/api/evidence/documents/{evidenceId}/withdraw` removes chunks from formal retrieval.
+- FastAPI `POST /v1/evidence/retrieve` can use `CORE_API_BASE_URL` to retrieve Core API published chunks and returns an explicit degradation result if Core API evidence retrieval is unavailable.

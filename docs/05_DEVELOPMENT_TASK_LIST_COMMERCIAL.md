@@ -29,8 +29,8 @@
 2. 已完成：规则草稿、提交审核、发布和撤回 API；发布规则可由 `/api/rules` 查看，推荐打开时记录规则执行。
 3. 已完成：剂量计算器接口和首批演示剂量规则；未发布规则或缺规则时返回安全不可用状态，禁止 AI 补写剂量。
 4. 已完成：`EvidenceDocument`、`DocumentBlock`、`EvidenceChunk` 数据库骨架。
-5. 部分完成：正式检索只返回 published evidence chunk；证据上传、解析、人工审核 UI 和撤回 API 待补。
-6. 部分完成：Core API 数据库证据检索已通；FastAPI RAG 直接读取数据库待补。
+5. 部分完成：证据上传、确定性段落解析、发布和撤回 API 已通；人工审核 UI、真实文件解析 Worker 待补。
+6. 部分完成：Core API 数据库证据检索已通；FastAPI 可通过 `CORE_API_BASE_URL` 读取 Core API 已发布证据切片，直接 PostgreSQL/pgvector 检索待补。
 
 ### M3 推荐审核闭环
 

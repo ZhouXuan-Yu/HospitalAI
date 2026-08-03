@@ -10,7 +10,7 @@
 | R-003 | 安全规则 | 阻断高风险推荐 | 过敏、ADR、重复、冲突、缺失 | 部分完成：规则元数据、规则病例和执行记录已落库；执行仍由 Java 确定性函数完成 | `rules` 模块、`clinical_rule` 表、`rule_execution` 表 | 过敏 100% 阻断、超级管理员不可绕过 |
 | R-004 | 剂量计算 | 避免 AI 自由生成剂量 | 确定性计算器、单位、上下限、特殊人群 | 部分完成：`/api/dose/calculate` 从 published `dose_rule` 读取规则文本；缺规则时安全返回不可用 | `dose` 模块、`dose_rule` 表 | 肾功能缺失、老人、单位异常、上限超出 |
 | R-005 | 药品目录 | 候选来自院内可用目录 | 目录版本、状态、适应范围 | 部分完成：快照导入器可 upsert 目录；目录版本和适应范围待补 | `drug_catalog`、目录导入器 | 停用药不能作为正常候选 |
-| R-006 | 证据中心 | 推荐理由可追溯 | 文件、解析、审核、发布、撤回 | 部分完成：EvidenceDocument/DocumentBlock/EvidenceChunk 表和 published-only 检索 API 已通；解析/审核 UI 待补 | `evidence` 模块、AI 解析/检索 | 未审核不得参与推荐、证据定位 |
+| R-006 | 证据中心 | 推荐理由可追溯 | 文件、解析、审核、发布、撤回 | 部分完成：EvidenceDocument/DocumentBlock/EvidenceChunk 表、上传/解析/发布/撤回 API、published-only 检索和 FastAPI Core 证据读取已通；真实文件解析与审核 UI 待补 | `evidence` 模块、AI 解析/检索 | 未审核不得参与推荐、证据定位 |
 | R-007 | 推荐流水线 | 形成可比较方案 | 固定流水线、候选、排除、解释 | 纵向切片已通 | `recommendation` 模块 | AI 失败降级、证据不足不补写 |
 | R-008 | 医生审核 | 保留最终决策权 | 采纳、修改、驳回、差异、理由 | 已有雏形 | `decision` 模块、Web 矩阵 | 修改前后差异、驳回无草稿 |
 | R-009 | 药师复核 | 高风险闭环处理 | 审方队列、沟通、处理结果 | 缺口 | `pharmacist-review` 模块 | 阻断、强提醒、跨科室协同 |
