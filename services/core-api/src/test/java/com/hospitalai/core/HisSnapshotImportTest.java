@@ -58,7 +58,7 @@ class HisSnapshotImportTest {
         .andExpect(jsonPath("$[*].encounterId", hasItem("E900")))
         .andExpect(jsonPath("$[*].sourcePatientId", hasItem("HIS-P900")));
 
-    mvc.perform(get("/api/debug/persistence"))
+    mvc.perform(get("/api/debug/persistence").header("X-HospitalAI-Role", "admin"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.latestInboundEvents[0].status", is("applied")));
   }

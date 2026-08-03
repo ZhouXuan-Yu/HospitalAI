@@ -451,3 +451,91 @@ Remaining UI gaps:
 
 - This is an integrated operational panel, not a full independent pharmacist or research manager workbench.
 - Artifact access still lacks role-based download authorization and redaction controls.
+
+## 2026-08-03 M5 Development Role Authorization Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 20 passed, 0 failed.
+- Contract validation: passed.
+- Python: 5 passed, 0 failed.
+- Vue store: 2 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- Default development role remains `doctor`, preserving normal workbench read and recommendation flow.
+- `GET /api/debug/persistence` now requires `admin` or `super_admin`.
+- `GET /api/research/artifacts` now requires `researcher`, `pharmacist`, `admin` or `super_admin`.
+- `POST /api/adr/reviews/{adrId}/resolve` now requires `pharmacist`, `admin` or `super_admin`.
+- `POST /api/knowledge/submissions/{submissionId}/reviews` now requires `pharmacist`, `research_director`, `admin` or `super_admin`.
+- `POST /api/research/analysis-tasks/process-next` now requires `worker`, `researcher`, `admin` or `super_admin`.
+- `RoleAuthorizationTest` verifies default doctor role receives 403 on debug, artifact, worker and ADR-confirmation operations, while explicit authorized development roles pass.
+- Frontend operational actions now send explicit development role headers for pharmacist, researcher and worker actions.
+
+Remaining M5 gaps:
+
+- This is development-mode role enforcement, not production OIDC/SSO.
+- Short-lived signed context tickets, full RBAC/ABAC policy matrix, immutable audit storage and super-admin dual-control remain pending.
+
+## 2026-08-03 Frontend Product Redesign Validation
+
+Scope:
+
+- Product Design driven information architecture and quiet, dense hospital workbench design.
+- Twelve routed function pages across doctor, pharmacist, governance, research, knowledge and administration domains.
+- Contract-shaped frontend preview mode, with an explicit non-production boundary and no hidden backend fallback requests when `VITE_UI_PREVIEW=true`.
+- API documentation generated from the three checked-in OpenAPI 3.0.3 contracts.
+
+Commands:
+
+```powershell
+cd D:\WorkProject\HospitalAI\apps\web
+npm run build
+npm test
+$env:VITE_UI_PREVIEW='true'; npm run dev -- --host 127.0.0.1 --port 5175
+$env:E2E_BASE_URL='http://127.0.0.1:5175'; npm run e2e
+npm audit --audit-level=high --registry=https://registry.npmjs.org
+```
+
+Results:
+
+- Production build: passed with Vite 7.3.6; output generated successfully. Rollup reports a non-blocking main-chunk size optimization warning.
+- Vitest: 2 passed, 0 failed.
+- Playwright: 10 passed, 0 failed across Chromium 1366x768 and 1920x1080.
+- Route coverage: 11 navigable pages plus the doctor decision workbench; no page-level horizontal overflow in either target viewport.
+- Security dependency audit: 0 vulnerabilities after upgrading Element Plus, Vite, Vitest, Playwright, YAML and the vulnerable transitive `glob` package.
+- OpenAPI parsing: 3 contracts, 61 operations, all displayed from repository YAML rather than a separately maintained endpoint list.
+
+Verified behaviors:
+
+- Normal patient: context and candidate matrix render; doctor adoption creates a clearly marked preview prescription draft and an audit receipt.
+- Confirmed allergy on readmission: inherited allergy appears in the safety view and the draft action remains disabled.
+- Missing critical labs: unknown values remain visibly missing and are never presented as normal.
+- Role switch: navigation is filtered, while the confirmed-allergy hard block remains enforced.
+- 1920 layout: patient, candidate comparison and risk/evidence rail are all visible.
+- 1366 layout: patient and candidate columns remain usable; risk/evidence moves to the safety drawer.
+
+Visual evidence:
+
+- `docs/validation/ui-worklist-chromium-1366.png`
+- `docs/validation/ui-worklist-chromium-1920.png`
+- `docs/validation/ui-workbench-chromium-1366.png`
+- `docs/validation/ui-workbench-chromium-1920.png`
+- `docs/validation/ui-api-docs-chromium-1366.png`
+- `docs/validation/ui-api-docs-chromium-1920.png`
+
+Remaining production boundary:
+
+- This acceptance covers the complete frontend product surface in explicit preview mode. Hospital connector credentials, production OIDC/SSO, real database integration, immutable audit storage and deployment performance budgets remain in the later backend/integration stage by current user priority.
+- The production JavaScript entry chunk is approximately 339 KB gzip because Element Plus is currently registered globally; switch to component-level imports before enforcing the production web performance budget.

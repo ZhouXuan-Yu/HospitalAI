@@ -159,6 +159,7 @@ class TrackingAndResearchAssetsTest {
     String adrId = mapper.readTree(reviewJson).get(0).get("adrId").asText();
 
     mvc.perform(post("/api/adr/reviews/" + adrId + "/resolve")
+            .header("X-HospitalAI-Role", "pharmacist")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "decision": "confirm", "note": "药师确认严重 ADR，后续就诊必须强提醒。" }
@@ -303,6 +304,9 @@ class TrackingAndResearchAssetsTest {
     String analysisUri = mapper.readTree(analysisJson).get("artifactUri").asText();
 
     mvc.perform(get("/api/research/artifacts").param("uri", analysisUri))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(get("/api/research/artifacts").header("X-HospitalAI-Role", "researcher").param("uri", analysisUri))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content", containsString("research_analysis_run")))
         .andExpect(jsonPath("$.sha256", is(mapper.readTree(analysisJson).get("outputHash").asText())));
@@ -319,7 +323,8 @@ class TrackingAndResearchAssetsTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("queued")));
 
-    String workerJson = mvc.perform(post("/api/research/analysis-tasks/process-next"))
+    String workerJson = mvc.perform(post("/api/research/analysis-tasks/process-next")
+            .header("X-HospitalAI-Role", "worker"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("completed")))
         .andExpect(jsonPath("$.run.inputHash", is("worker-input-hash")))
@@ -328,7 +333,7 @@ class TrackingAndResearchAssetsTest {
     String workerArtifactUri = mapper.readTree(workerJson).get("run").get("artifactUri").asText();
     String workerOutputHash = mapper.readTree(workerJson).get("run").get("outputHash").asText();
 
-    mvc.perform(get("/api/research/artifacts").param("uri", workerArtifactUri))
+    mvc.perform(get("/api/research/artifacts").header("X-HospitalAI-Role", "researcher").param("uri", workerArtifactUri))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content", containsString("worker-ai-output-hash")))
         .andExpect(jsonPath("$.content", containsString("workerCalled")))
@@ -345,7 +350,7 @@ class TrackingAndResearchAssetsTest {
         .andReturn().getResponse().getContentAsString();
     String exportUri = mapper.readTree(exportJson).get("artifactUri").asText();
 
-    mvc.perform(get("/api/research/artifacts").param("uri", exportUri))
+    mvc.perform(get("/api/research/artifacts").header("X-HospitalAI-Role", "researcher").param("uri", exportUri))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content", containsString("subjectKey")))
         .andExpect(jsonPath("$.content", containsString("COHORT-CAP-002")))
@@ -378,6 +383,7 @@ class TrackingAndResearchAssetsTest {
     String submissionId = mapper.readTree(submissionJson).get("submissionId").asText();
 
     mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/reviews")
+            .header("X-HospitalAI-Role", "pharmacist")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "reviewerRole": "pharmacist", "decision": "approve", "note": "药学口径通过。" }
@@ -386,6 +392,7 @@ class TrackingAndResearchAssetsTest {
         .andExpect(jsonPath("$.decision", is("approve")));
 
     mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/reviews")
+            .header("X-HospitalAI-Role", "research_director")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "reviewerRole": "research_director", "decision": "approve", "note": "科研负责人通过。" }
@@ -398,6 +405,7 @@ class TrackingAndResearchAssetsTest {
         .andExpect(jsonPath("$[*].submissionId", hasItem(submissionId)));
 
     mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/withdraw")
+            .header("X-HospitalAI-Role", "admin")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "reason": "演示撤回，验证发布后可追溯撤回。" }

@@ -135,6 +135,9 @@ export interface ResearchArtifactContent {
   content: string
 }
 
+const roleHeaders = (role: string) => ({ 'X-HospitalAI-Role': role })
+const jsonRoleHeaders = (role: string) => ({ 'Content-Type': 'application/json', 'X-HospitalAI-Role': role })
+
 export interface SnapshotImportResponse {
   eventId: string
   status: string
@@ -192,7 +195,7 @@ export async function fetchAdrReviews(status = 'review_pending'): Promise<Advers
 export async function resolveAdrReview(adrId: string, decision: 'confirm' | 'reject', note: string): Promise<AdverseDrugReactionSummary> {
   const response = await fetch(`/api/adr/reviews/${adrId}/resolve`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: jsonRoleHeaders('pharmacist'),
     body: JSON.stringify({ decision, note })
   })
   if (!response.ok) throw new Error(`ADR审核提交失败：${response.status}`)
@@ -208,7 +211,7 @@ export async function fetchKnowledgeSubmissions(status = 'review_pending'): Prom
 export async function reviewKnowledgeSubmission(submissionId: string, reviewerRole: string, decision: 'approve' | 'reject', note: string): Promise<Record<string, unknown>> {
   const response = await fetch(`/api/knowledge/submissions/${submissionId}/reviews`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: jsonRoleHeaders(reviewerRole),
     body: JSON.stringify({ reviewerRole, decision, note })
   })
   if (!response.ok) throw new Error(`知识审核提交失败：${response.status}`)
@@ -216,7 +219,7 @@ export async function reviewKnowledgeSubmission(submissionId: string, reviewerRo
 }
 
 export async function processNextAnalysisTask(): Promise<Record<string, unknown>> {
-  const response = await fetch('/api/research/analysis-tasks/process-next', { method: 'POST' })
+  const response = await fetch('/api/research/analysis-tasks/process-next', { method: 'POST', headers: roleHeaders('worker') })
   if (!response.ok) throw new Error(`科研统计任务处理失败：${response.status}`)
   return response.json()
 }
@@ -229,7 +232,7 @@ export async function fetchAnalysisTasks(cohortId: string, status = ''): Promise
 }
 
 export async function fetchResearchArtifact(uri: string): Promise<ResearchArtifactContent> {
-  const response = await fetch(`/api/research/artifacts?uri=${encodeURIComponent(uri)}`)
+  const response = await fetch(`/api/research/artifacts?uri=${encodeURIComponent(uri)}`, { headers: roleHeaders('researcher') })
   if (!response.ok) throw new Error(`科研产物读取失败：${response.status}`)
   return response.json()
 }

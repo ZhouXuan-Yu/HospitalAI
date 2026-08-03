@@ -137,7 +137,7 @@ class DoseAndEvidenceGovernanceApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("withdrawn")));
 
-    mvc.perform(get("/api/debug/persistence"))
+    mvc.perform(get("/api/debug/persistence").header("X-HospitalAI-Role", "admin"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.latestAudits[*].action", hasItem("RULE_WITHDRAWN")));
   }

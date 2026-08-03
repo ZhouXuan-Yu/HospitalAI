@@ -31,7 +31,7 @@ class RuleGovernanceApiTest {
         .andExpect(jsonPath("$.alerts[0].ruleId", is("HR-ALG-001")))
         .andExpect(jsonPath("$.alerts[0].status", is("published-demo")));
 
-    mvc.perform(get("/api/debug/persistence"))
+    mvc.perform(get("/api/debug/persistence").header("X-HospitalAI-Role", "admin"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.latestRuleExecutions[*].rule_id", hasItem("HR-ALG-001")));
   }

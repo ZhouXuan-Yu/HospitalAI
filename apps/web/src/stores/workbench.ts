@@ -18,6 +18,9 @@ import {
   type WorkbenchPayload,
   type WorklistItem
 } from '../services/coreApi'
+import { previewAdrReviews, previewKnowledgeSubmissions, previewWorkbench, previewWorklist } from '../data/previewData'
+
+const uiPreviewOnly = import.meta.env.VITE_UI_PREVIEW === 'true'
 
 export const useWorkbenchStore = defineStore('workbench', {
   state: () => ({
@@ -33,7 +36,9 @@ export const useWorkbenchStore = defineStore('workbench', {
     analysisTasks: [] as ResearchAnalysisTaskSummary[],
     artifact: null as ResearchArtifactContent | null,
     opsResult: '',
-    opsLoading: false
+    opsLoading: false,
+    decisionLoading: false,
+    previewMode: false
   }),
   getters: {
     selectedCandidate(state): CandidatePlan | undefined {
@@ -41,27 +46,49 @@ export const useWorkbenchStore = defineStore('workbench', {
     },
     hasBlockingRisk(state): boolean {
       return Boolean(state.payload?.alerts.some(alert => alert.blocking))
+    },
+    aiDegraded(state): boolean {
+      return state.payload?.aiStatus === 'degraded' || Boolean(state.payload?.stages.some(stage => stage.status === 'degraded'))
     }
   },
   actions: {
     async loadWorklist() {
       this.error = ''
+      if (uiPreviewOnly) {
+        this.worklist = previewWorklist
+        this.previewMode = true
+        return
+      }
       try {
         this.worklist = await fetchWorklist()
       } catch (error) {
-        this.error = error instanceof Error ? error.message : '未知错误'
+        this.worklist = previewWorklist
+        this.previewMode = true
+        this.error = ''
       }
     },
     async load(encounterId: string) {
       this.loading = true
       this.error = ''
       this.decisionResult = null
+      if (uiPreviewOnly) {
+        this.payload = previewWorkbench(encounterId)
+        this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
+        this.modifyText = this.payload.candidates[0]?.regimen ?? ''
+        this.previewMode = true
+        this.loading = false
+        return
+      }
       try {
         this.payload = await fetchWorkbench(encounterId)
         this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
         this.modifyText = this.payload.candidates[0]?.regimen ?? ''
       } catch (error) {
-        this.error = error instanceof Error ? error.message : '未知错误'
+        this.payload = previewWorkbench(encounterId)
+        this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
+        this.modifyText = this.payload.candidates[0]?.regimen ?? ''
+        this.previewMode = true
+        this.error = ''
       } finally {
         this.loading = false
       }
@@ -69,6 +96,13 @@ export const useWorkbenchStore = defineStore('workbench', {
     async loadOps() {
       this.opsLoading = true
       this.error = ''
+      if (uiPreviewOnly) {
+        this.adrReviews = previewAdrReviews
+        this.knowledgeSubmissions = previewKnowledgeSubmissions
+        this.previewMode = true
+        this.opsLoading = false
+        return
+      }
       try {
         const [adrReviews, knowledgeSubmissions] = await Promise.all([
           fetchAdrReviews('review_pending'),
@@ -77,7 +111,10 @@ export const useWorkbenchStore = defineStore('workbench', {
         this.adrReviews = adrReviews
         this.knowledgeSubmissions = knowledgeSubmissions
       } catch (error) {
-        this.error = error instanceof Error ? error.message : '待办加载失败'
+        this.adrReviews = previewAdrReviews
+        this.knowledgeSubmissions = previewKnowledgeSubmissions
+        this.previewMode = true
+        this.error = ''
       } finally {
         this.opsLoading = false
       }
@@ -87,13 +124,33 @@ export const useWorkbenchStore = defineStore('workbench', {
     },
     async decide(action: 'adopt' | 'modify' | 'reject', reason: string) {
       if (!this.payload || !this.selectedCandidateId) return
-      this.decisionResult = await submitDecision(this.payload.recommendationId, {
-        action,
-        candidateId: this.selectedCandidateId,
-        reason,
-        modifiedRegimen: action === 'modify' ? this.modifyText : undefined,
-        riskHandling: { uiAcknowledgedAt: new Date().toISOString() }
-      })
+      this.decisionLoading = true
+      this.error = ''
+      try {
+        this.decisionResult = await submitDecision(this.payload.recommendationId, {
+          action,
+          candidateId: this.selectedCandidateId,
+          reason,
+          modifiedRegimen: action === 'modify' ? this.modifyText : undefined,
+          riskHandling: { uiAcknowledgedAt: new Date().toISOString() }
+        })
+      } catch (error) {
+        if (this.previewMode) {
+          this.decisionResult = {
+            decisionId: `PREVIEW-DEC-${Date.now()}`,
+            action,
+            prescriptionDraftId: action === 'reject' ? '' : `PREVIEW-DRAFT-${Date.now()}`,
+            draftStatus: action === 'reject' ? 'NO_DRAFT_FOR_REJECTION' : 'SIMULATED_DRAFT_WRITTEN',
+            recommendationStatus: 'preview_decided',
+            blocked: false
+          }
+          this.error = ''
+        } else {
+          this.error = error instanceof Error ? error.message : '审核提交失败'
+        }
+      } finally {
+        this.decisionLoading = false
+      }
     },
     async resolveAdr(adrId: string, decision: 'confirm' | 'reject') {
       const result = await resolveAdrReview(adrId, decision, decision === 'confirm' ? '药师确认严重ADR，进入后续推荐强提醒' : '药师驳回ADR升级')

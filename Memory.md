@@ -121,8 +121,9 @@
 7. 已推进 M4 患者追踪与科研资产骨架：用药事件链、反馈、不良反应信号、出院结局、严重 ADR 审核升级并在确认后触发后续推荐强提醒、研究队列、变量字典、质量检查、队列冻结、统计任务、Java Worker 显式处理并通过 HTTP 调用 FastAPI 统计端点、统计运行记录、统计产物落盘、脱敏导出记录、脱敏 JSONL 产物落盘、artifact 回读、报告草稿、报告审核、知识提交、两角色知识审核发布和撤回 API 已通；FastAPI 固定统计端点输出稳定哈希；医生工作台右栏已接入 ADR 待办、知识待办、artifact 回读和统计 Worker 触发。
 8. 本机验证使用 `h2-demo` profile，因为 Docker Desktop Linux engine 未运行，PostgreSQL 18 虽运行但无 postgres 凭据；默认工程仍保留 PostgreSQL/pgvector Compose 基线。
 9. 验证记录在 `docs/validation/phase1-acceptance.md`，截图在 `docs/validation/workbench-1366.png` 和 `docs/validation/workbench-1920.png`。
-10. 下一步优先补 M4/M5 剩余项：自动定时 Worker 调度和严格租约抢占、独立药师/知识库工作台、引用控制、artifact 下载授权、更细角色权限、安全扫描、备份恢复和压测。
-11. 随后进入 M5：权限票据和 RBAC/ABAC、超级管理员约束硬化、OpenTelemetry、备份恢复演练、安全扫描、性能压测、最终需求追踪矩阵和验收结论。
+10. 已推进 M5 权限基线：开发身份头 `X-HospitalAI-Role` 已保护 debug、artifact、ADR 确认、知识审核/撤回和统计 Worker，默认 `doctor` 越权返回 403；前端运营动作会发送 pharmacist/researcher/worker 角色头。
+11. 下一步优先补 M4/M5 剩余项：自动定时 Worker 调度和严格租约抢占、独立药师/知识库工作台、引用控制、artifact 下载授权、安全扫描、备份恢复和压测。
+12. 随后继续 M5：OIDC/SSO、短期签名上下文票据、完整 RBAC/ABAC、审计不可删硬化、超级管理员双重约束、OpenTelemetry、备份恢复演练、安全扫描、性能压测、最终需求追踪矩阵和验收结论。
 
 ## 2026-08-03 新增商业化交付基线
 
@@ -142,3 +143,12 @@
 - 医院备份、监控、审计保存和安全审查要求。
 - 社区获得性肺炎专病指标、临床判定标准和审核专家。
 - 可用于试点的脱敏病例、指南、药品目录及科研管理要求。
+
+## 2026-08-03 前端优先交付状态
+
+1. 最新开发顺序改为前端优先；后端和数据库深化暂停，待前端功能布局与 UI 验收后继续。
+2. 已建立角色化应用壳和 12 个业务页面：患者工作列表、处方辅助决策、患者用药全景、长期用药追踪、药师风险复核、规则治理、证据中心、科研工作台、知识审核、接口同步、审计日志和 API 文档。
+3. 医生工作台在 1920 使用患者/候选/风险证据三栏，在 1366 将右栏转为安全审查抽屉；候选横向矩阵、采纳、修改、驳回、差异与阻断状态已实现。
+4. 前端通过 `VITE_UI_PREVIEW=true` 使用契约型验证数据独立运行，界面持续显示非生产边界；集成环境保持 `false` 并调用 Core API。
+5. API 文档页直接解析三份版本化 OpenAPI YAML，当前展示 61 个操作并映射到对应功能页面。
+6. 前端生产构建、Vitest 和 Playwright 两视口验收结果记录在 `docs/validation/phase1-acceptance.md`，信息架构与接口追踪见 `docs/06_FRONTEND_INFORMATION_ARCHITECTURE.md`。

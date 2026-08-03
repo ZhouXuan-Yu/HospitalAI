@@ -61,6 +61,8 @@ import com.hospitalai.core.service.ResearchAnalysisWorkerService;
 import com.hospitalai.core.service.RuleGovernanceService;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -77,8 +79,9 @@ public class WorkbenchController {
   private final DoseCalculationService doseCalculationService;
   private final EvidenceGovernanceService evidenceGovernanceService;
   private final ResearchAnalysisWorkerService researchAnalysisWorkerService;
+  private final String defaultDevRole;
 
-  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService, EvidenceGovernanceService evidenceGovernanceService, ResearchAnalysisWorkerService researchAnalysisWorkerService) {
+  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService, EvidenceGovernanceService evidenceGovernanceService, ResearchAnalysisWorkerService researchAnalysisWorkerService, @Value("${hospitalai.dev-role:doctor}") String defaultDevRole) {
     this.service = service;
     this.repository = repository;
     this.importService = importService;
@@ -86,6 +89,7 @@ public class WorkbenchController {
     this.doseCalculationService = doseCalculationService;
     this.evidenceGovernanceService = evidenceGovernanceService;
     this.researchAnalysisWorkerService = researchAnalysisWorkerService;
+    this.defaultDevRole = defaultDevRole;
   }
 
   @GetMapping("/worklist")
@@ -273,7 +277,8 @@ public class WorkbenchController {
   }
 
   @PostMapping("/adr/reviews/{adrId}/resolve")
-  public AdverseDrugReactionSummary resolveAdrReview(@PathVariable String adrId, @RequestBody AdverseDrugReactionReviewRequest request) {
+  public AdverseDrugReactionSummary resolveAdrReview(@PathVariable String adrId, @RequestBody AdverseDrugReactionReviewRequest request, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "pharmacist", "admin", "super_admin");
     if (request == null || request.decision() == null || request.decision().isBlank()) {
       throw new IllegalArgumentException("decision is required");
     }
@@ -364,7 +369,8 @@ public class WorkbenchController {
   }
 
   @PostMapping("/research/analysis-tasks/process-next")
-  public ResearchAnalysisWorkerResponse processNextAnalysisTask() {
+  public ResearchAnalysisWorkerResponse processNextAnalysisTask(@RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "researcher", "admin", "super_admin", "worker");
     return researchAnalysisWorkerService.processNext();
   }
 
@@ -394,7 +400,8 @@ public class WorkbenchController {
   }
 
   @GetMapping("/research/artifacts")
-  public ResearchArtifactContent researchArtifact(@RequestParam String uri) {
+  public ResearchArtifactContent researchArtifact(@RequestParam String uri, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "researcher", "pharmacist", "admin", "super_admin");
     return repository.readArtifact(uri);
   }
 
@@ -433,14 +440,16 @@ public class WorkbenchController {
   }
 
   @PostMapping("/knowledge/submissions/{submissionId}/reviews")
-  public KnowledgeReviewSummary reviewKnowledge(@PathVariable String submissionId, @RequestBody KnowledgeReviewRequest request) {
+  public KnowledgeReviewSummary reviewKnowledge(@PathVariable String submissionId, @RequestBody KnowledgeReviewRequest request, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "pharmacist", "research_director", "admin", "super_admin");
     var review = repository.reviewKnowledge(submissionId, request);
     repository.audit("knowledge_demo", "KNOWLEDGE_REVIEW_RECORDED", submissionId, review.reviewerRole() + ":" + review.decision());
     return review;
   }
 
   @PostMapping("/knowledge/submissions/{submissionId}/withdraw")
-  public KnowledgeSubmissionSummary withdrawKnowledge(@PathVariable String submissionId, @RequestBody(required = false) Map<String, String> request) {
+  public KnowledgeSubmissionSummary withdrawKnowledge(@PathVariable String submissionId, @RequestBody(required = false) Map<String, String> request, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "admin", "super_admin");
     String reason = request == null ? "withdrawn" : request.getOrDefault("reason", "withdrawn");
     return repository.withdrawKnowledge(submissionId, reason);
   }
@@ -451,7 +460,8 @@ public class WorkbenchController {
   }
 
   @GetMapping("/debug/persistence")
-  public Map<String, Object> persistence() {
+  public Map<String, Object> persistence(@RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "admin", "super_admin");
     return repository.latestPersistenceSnapshot();
   }
 
@@ -459,6 +469,24 @@ public class WorkbenchController {
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public Map<String, Object> badRequest(IllegalArgumentException ex) {
     return Map.of("error", ex.getMessage());
+  }
+
+  @ExceptionHandler(SecurityException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public Map<String, Object> forbidden(SecurityException ex) {
+    return Map.of("error", ex.getMessage());
+  }
+
+  private void requireAny(String headerRole, String... allowed) {
+    String role = roleOrDefault(headerRole);
+    if (Set.of(allowed).contains(role)) {
+      return;
+    }
+    throw new SecurityException("role " + role + " is not allowed for this operation");
+  }
+
+  private String roleOrDefault(String headerRole) {
+    return headerRole == null || headerRole.isBlank() ? defaultDevRole : headerRole;
   }
 
   private static boolean isSeriousAdverseSignal(String value) {
