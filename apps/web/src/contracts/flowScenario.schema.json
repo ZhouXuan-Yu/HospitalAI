@@ -49,13 +49,32 @@
     },
     "research": {
       "type": "object",
-      "required": ["project", "historicalRecords", "variables", "qualityIssues", "analysisPlan", "reportTemplate"],
+      "required": ["project", "historicalRecords", "variables", "qualityIssues", "analysisPlan", "publicationProfile", "reportTemplate"],
       "properties": {
         "project": { "type": "object", "required": ["projectId", "title", "owner", "protocolVersion", "researchQuestion", "design", "inclusionCriteria", "exclusionCriteria", "observationWindow", "ethicsStatus"] },
         "historicalRecords": { "type": "array", "minItems": 3 },
         "variables": { "type": "array", "minItems": 4 },
         "qualityIssues": { "type": "array" },
         "analysisPlan": { "type": "object", "required": ["scriptName", "scriptVersion", "method", "outputs"] },
+        "publicationProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["institution", "principalInvestigator", "statistician", "ethicsApproval", "registrationId", "targetJournal", "primaryEndpoint", "secondaryEndpoints", "exposureDefinition", "confounders", "statisticalSoftware", "reportingGuideline"],
+          "properties": {
+            "institution": { "type": "string", "minLength": 1 },
+            "principalInvestigator": { "type": "string", "minLength": 1 },
+            "statistician": { "type": "string", "minLength": 1 },
+            "ethicsApproval": { "type": "string", "minLength": 1 },
+            "registrationId": { "type": "string", "minLength": 1 },
+            "targetJournal": { "type": "string", "minLength": 1 },
+            "primaryEndpoint": { "type": "string", "minLength": 1 },
+            "secondaryEndpoints": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "exposureDefinition": { "type": "string", "minLength": 1 },
+            "confounders": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "statisticalSoftware": { "type": "string", "minLength": 1 },
+            "reportingGuideline": { "type": "string", "minLength": 1 }
+          }
+        },
         "reportTemplate": { "type": "object", "required": ["title", "limitations", "applicability"] }
       }
     }

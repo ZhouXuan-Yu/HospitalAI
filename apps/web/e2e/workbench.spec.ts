@@ -97,6 +97,17 @@ test('imported JSON drives doctor-to-research full workflow', async ({ page }, t
   const reviewLabels = page.locator('.review-checks > label')
   for (let index = 0; index < await reviewLabels.count(); index += 1) await reviewLabels.nth(index).click()
   await page.getByRole('button', { name: '批准并冻结报告版本' }).click()
+  const zipDownloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '下载科研数据包' }).click()
+  const zipDownload = await zipDownloadPromise
+  expect(zipDownload.suggestedFilename()).toMatch(/research-package\.zip$/)
+  await zipDownload.saveAs(resolve(process.cwd(), `../../docs/validation/research-package-${testInfo.project.name}.zip`))
+  const reportDownloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '下载结论报告' }).click()
+  const reportDownload = await reportDownloadPromise
+  expect(reportDownload.suggestedFilename()).toMatch(/medical-data-report\.docx$/)
+  await reportDownload.saveAs(resolve(process.cwd(), `../../docs/validation/medical-data-report-${testInfo.project.name}.docx`))
+  await page.screenshot({ path: `../../docs/validation/ui-research-artifacts-${testInfo.project.name}.png`, fullPage: true })
   await page.getByRole('button', { name: '提交知识审核中心' }).click()
   await expect(page.getByText(/知识候选已进入 review_pending/)).toBeVisible()
   await page.getByRole('button', { name: '查看知识审核任务' }).click()

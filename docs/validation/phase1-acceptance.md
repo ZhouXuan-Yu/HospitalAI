@@ -582,3 +582,34 @@ Production boundary:
 
 - This validation uses imported synthetic JSON only after Schema validation and exercises the real frontend state transitions. It does not claim hospital production data, a formal HIS order, a formal research conclusion or a production knowledge publication.
 - In integration mode, these transitions must be sourced from Core API persistence and the HIS adapter; browser local storage is only a resumable acceptance session.
+
+## 2026-08-04 Research Publication Package Validation
+
+Scope:
+
+- Generate a real ZIP research support package and a professional DOCX medical data report after report review and freeze.
+- Bind protocol, ethics/registration metadata, de-identified analysis data, variable dictionary, inclusion log, quality issues, fixed statistics, audit trail and report to one manifest.
+- Add regimen, age-group and sex-stratified descriptive outcomes without converting observational signals into causal treatment recommendations.
+- Show package/report readiness and publication gates in both research and knowledge review pages.
+
+Results:
+
+- Production build: passed.
+- Vitest: 5 passed, 0 failed; the artifact test opens the ZIP, verifies required entries, checks the DOCX size and confirms patient/encounter identifiers are absent from the analysis CSV.
+- Playwright: 12 passed, 0 failed across 1366x768 and 1920x1080; the full flow captured actual `.zip` and `.docx` browser downloads.
+- ZIP manifest: `hospitalai.research-package.v1`, 11 hashed files, each with SHA-256 and byte count.
+- DOCX structure: valid Office Open XML; report body contains STROBE metadata and the explicit prohibition against inferring drug superiority from the synthetic descriptive dataset.
+
+Generated artifacts:
+
+- `docs/validation/research-package-chromium-1366.zip`
+- `docs/validation/medical-data-report-chromium-1366.docx`
+- `docs/validation/research-package-chromium-1920.zip`
+- `docs/validation/medical-data-report-chromium-1920.docx`
+- `docs/validation/ui-research-artifacts-chromium-1366.png`
+- `docs/validation/ui-research-artifacts-chromium-1920.png`
+
+Publication boundary:
+
+- These files are generated from synthetic validation records and are therefore not publishable research data or clinical evidence.
+- A production publication package additionally requires authorized real data, valid ethics/registration records, a locked statistical analysis plan, sample-size justification, confounding control, sensitivity analysis, external validation and multi-role sign-off.

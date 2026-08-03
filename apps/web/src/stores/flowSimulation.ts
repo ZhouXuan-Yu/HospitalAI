@@ -302,6 +302,25 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       const records = this.includedRecords
       const distribution = new Map<string, number>()
       records.forEach(record => distribution.set(record.regimen, (distribution.get(record.regimen) ?? 0) + 1))
+      const regimenOutcomes = [...distribution.keys()].map(regimen => {
+        const group = records.filter(record => record.regimen === regimen)
+        return {
+          regimen,
+          sampleSize: group.length,
+          meanAge: Number((group.reduce((sum, record) => sum + record.age, 0) / group.length).toFixed(1)),
+          femaleCount: group.filter(record => record.sex === 'F').length,
+          improvedCount: group.filter(record => record.treatmentResponse === 'improved').length,
+          adverseEventCount: group.filter(record => record.adverseEvent).length,
+          followupCompleteCount: group.filter(record => record.followupComplete).length
+        }
+      })
+      const subgroupOutcomes = (['age_group', 'sex'] as const).flatMap(subgroup => {
+        const levels = subgroup === 'age_group' ? ['<65', '>=65'] : ['F', 'M']
+        return levels.flatMap(level => [...distribution.keys()].map(regimen => {
+          const group = records.filter(record => record.regimen === regimen && (subgroup === 'age_group' ? (level === '<65' ? record.age < 65 : record.age >= 65) : record.sex === level))
+          return { subgroup, level, regimen, sampleSize: group.length, improvedCount: group.filter(record => record.treatmentResponse === 'improved').length, adverseEventCount: group.filter(record => record.adverseEvent).length }
+        })).filter(item => item.sampleSize > 0)
+      })
       const resultBase = {
         datasetVersion: this.datasetVersion,
         inputHash: this.datasetHash,
@@ -309,7 +328,9 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
         improvedCount: records.filter(record => record.treatmentResponse === 'improved').length,
         adverseEventCount: records.filter(record => record.adverseEvent).length,
         followupMissingCount: records.filter(record => !record.followupComplete).length,
-        regimenDistribution: [...distribution].map(([regimen, count]) => ({ regimen, count }))
+        regimenDistribution: [...distribution].map(([regimen, count]) => ({ regimen, count })),
+        regimenOutcomes,
+        subgroupOutcomes
       }
       this.analysisResult = {
         runId: `RUN-${Date.now()}`,
@@ -325,15 +346,23 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       if (!this.analysisResult) throw new Error('统计分析完成后才能生成报告草稿')
       const project = this.scenario?.research.project
       const template = this.scenario?.research.reportTemplate
+      const publication = this.scenario?.research.publicationProfile
+      const regimenSummary = this.analysisResult.regimenOutcomes.map(item => `${item.regimen}：n=${item.sampleSize}，平均年龄 ${item.meanAge} 岁，改善 ${item.improvedCount} 例，不良事件 ${item.adverseEventCount} 例，随访完整 ${item.followupCompleteCount} 例`).join('\n')
+      const subgroupSummary = this.analysisResult.subgroupOutcomes.map(item => `${item.subgroup === 'age_group' ? '年龄' : '性别'} ${item.level} / ${item.regimen}：n=${item.sampleSize}，改善 ${item.improvedCount} 例，不良事件 ${item.adverseEventCount} 例`).join('\n')
       this.reportVersion = 'RPT-CAP-FLOW-v1'
       this.reportStatus = 'draft'
       this.reportSections = {
+        abstract: `目的：${project?.researchQuestion ?? ''}\n方法：${project?.design ?? ''}，按预先固定统计计划进行描述性分析。\n结果：共纳入 ${this.analysisResult.sampleSize} 条记录，改善 ${this.analysisResult.improvedCount} 例，不良事件 ${this.analysisResult.adverseEventCount} 例。\n结论：当前数据仅支持描述性观察和假设生成，不能据此证明某种药物对某类患者更优。`,
         question: `${project?.researchQuestion ?? ''}\n研究设计：${project?.design ?? ''}`,
+        methods: `主要终点：${publication?.primaryEndpoint ?? ''}\n次要终点：${publication?.secondaryEndpoints.join('；') ?? ''}\n暴露定义：${publication?.exposureDefinition ?? ''}\n预设混杂因素：${publication?.confounders.join('、') ?? ''}\n统计方法：${this.scenario?.research.analysisPlan.method ?? ''}`,
         cohort: `共纳入 ${this.analysisResult.sampleSize} 条合成记录。纳入和排除标准见方案 ${project?.protocolVersion ?? ''}。`,
+        baseline: regimenSummary,
         exposure: this.analysisResult.regimenDistribution.map(item => `${item.regimen}：${item.count} 例`).join('\n'),
         outcomes: `治疗反应改善 ${this.analysisResult.improvedCount} 例；不良事件 ${this.analysisResult.adverseEventCount} 例；随访缺失 ${this.analysisResult.followupMissingCount} 例。`,
+        subgroups: `${subgroupSummary}\n\n以上为未经调整的描述性分层，存在指征混杂和样本稀疏，不可用于个体化用药优劣判断。`,
         limitations: template?.limitations.join('；') ?? '',
-        conclusion: `AI 草稿：本次结果只描述导入验证队列中的流程与分布。${template?.applicability ?? ''}`
+        conclusion: `本研究仅描述导入验证队列中的用药暴露和结局分布。现有设计与样本不支持因果推断，不能得出“某药更适合某类患者”的临床结论；分层信号只能作为后续预注册、充分样本量研究的假设。${template?.applicability ?? ''}`,
+        reproducibility: `数据集：${this.datasetVersion}（${this.datasetHash}）\n统计运行：${this.analysisResult.runId}（${this.analysisResult.outputHash}）\n软件：${publication?.statisticalSoftware ?? ''}\n报告规范：${publication?.reportingGuideline ?? ''}`
       }
       this.addAudit('research', 'REPORT_DRAFT_GENERATED', this.reportVersion)
       this.persist()

@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
+import JSZip from 'jszip'
 import { useFlowSimulationStore } from '../src/stores/flowSimulation'
+import { buildResearchArtifactBundle } from '../src/services/researchArtifacts'
 
 const scenarioText = readFileSync(resolve(process.cwd(), 'public/scenarios/cap-full-flow.v1.json'), 'utf8')
 
@@ -56,6 +58,29 @@ describe('frontend flow simulation store', () => {
     flow.generateReport()
     flow.submitReportReview()
     flow.approveAndFreezeReport()
+    const bundle = await buildResearchArtifactBundle({
+      seed: flow.scenario!.research,
+      records: flow.includedRecords,
+      excludedRecords: flow.researchRecords.filter(record => !flow.cohortRecordIds.includes(record.recordId)),
+      resolvedQualityIssueIds: flow.resolvedQualityIssues,
+      analysis: flow.analysisResult!,
+      datasetVersion: flow.datasetVersion,
+      datasetHash: flow.datasetHash,
+      reportVersion: flow.reportVersion,
+      reportSections: flow.reportSections,
+      auditEvents: flow.auditEvents,
+      synthetic: flow.scenario!.metadata.synthetic,
+      scenarioDisclaimer: flow.scenario!.metadata.disclaimer
+    })
+    const archive = await JSZip.loadAsync(bundle.zip)
+    expect(Object.keys(archive.files)).toEqual(expect.arrayContaining([
+      'manifest.json', 'data/analysis-dataset.csv', 'data/variable-dictionary.csv', 'data/inclusion-log.csv',
+      'quality/quality-issues.csv', 'analysis/result.json', 'audit/flow-audit.json', `report/${flow.reportVersion}.docx`
+    ]))
+    const analysisCsv = await archive.file('data/analysis-dataset.csv')!.async('string')
+    expect(analysisCsv).not.toContain('RP101')
+    expect(analysisCsv).not.toContain('RE101')
+    expect(bundle.report.size).toBeGreaterThan(1_000)
     flow.submitKnowledge()
 
     expect(flow.reportStatus).toBe('approved_frozen')

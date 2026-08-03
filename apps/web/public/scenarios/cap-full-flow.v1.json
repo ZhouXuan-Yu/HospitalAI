@@ -127,6 +127,20 @@
       "method": "固定版本描述性统计：频数、比例与分组分布；不执行因果推断或自由选择模型。",
       "outputs": ["纳排流程表", "患者基线特征", "方案暴露分布", "治疗反应分布", "安全事件与缺失说明"]
     },
+    "publicationProfile": {
+      "institution": "HospitalAI 合成数据研究中心",
+      "principalInvestigator": "周医生",
+      "statistician": "合成统计审核员",
+      "ethicsApproval": "SYNTHETIC-DEMO-EXEMPT（仅流程验证，非伦理批件）",
+      "registrationId": "DEMO-CAP-2026-001（非正式注册号）",
+      "targetJournal": "待研究团队与科研管理部门确认",
+      "primaryEndpoint": "出院时治疗反应分布（改善、稳定、恶化、未知）",
+      "secondaryEndpoints": ["住院期间不良事件记录比例", "30 天随访完整率", "不同初始用药暴露方案的描述性结局分布"],
+      "exposureDefinition": "以经过来源核验的首次实际执行抗感染方案作为暴露；仅有推荐或草稿但无执行记录者不计入暴露。",
+      "confounders": ["年龄", "性别", "疾病严重程度", "肾功能", "合并症", "既往抗感染药暴露"],
+      "statisticalSoftware": "HospitalAI fixed-statistics 1.0.0；正式研究须登记 R/Python 版本与锁定依赖",
+      "reportingGuideline": "STROBE 观察性研究报告规范"
+    },
     "reportTemplate": {
       "title": "CAP 住院患者处方决策流程与院内结局描述性报告草稿",
       "limitations": ["全部为合成验证记录", "样本量仅用于流程演示", "未进行因果推断", "不构成可投稿论文或临床结论"],

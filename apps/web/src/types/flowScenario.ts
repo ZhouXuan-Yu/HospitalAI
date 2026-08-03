@@ -65,6 +65,20 @@ export interface ResearchSeed {
     method: string
     outputs: string[]
   }
+  publicationProfile: {
+    institution: string
+    principalInvestigator: string
+    statistician: string
+    ethicsApproval: string
+    registrationId: string
+    targetJournal: string
+    primaryEndpoint: string
+    secondaryEndpoints: string[]
+    exposureDefinition: string
+    confounders: string[]
+    statisticalSoftware: string
+    reportingGuideline: string
+  }
   reportTemplate: {
     title: string
     limitations: string[]
@@ -115,6 +129,23 @@ export interface AnalysisResult {
   adverseEventCount: number
   followupMissingCount: number
   regimenDistribution: Array<{ regimen: string; count: number }>
+  regimenOutcomes: Array<{
+    regimen: string
+    sampleSize: number
+    meanAge: number
+    femaleCount: number
+    improvedCount: number
+    adverseEventCount: number
+    followupCompleteCount: number
+  }>
+  subgroupOutcomes: Array<{
+    subgroup: 'age_group' | 'sex'
+    level: string
+    regimen: string
+    sampleSize: number
+    improvedCount: number
+    adverseEventCount: number
+  }>
   generatedAt: string
 }
 
