@@ -50,3 +50,11 @@ npm --prefix apps/web run dev -- --host 127.0.0.1
 ```
 
 Current verified URL: http://127.0.0.1:5174
+
+## Useful API Smoke Checks
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:18080/api/worklist
+Invoke-RestMethod http://127.0.0.1:18080/api/rules
+Invoke-RestMethod "http://127.0.0.1:18080/api/evidence/chunks?query=CAP"
+```

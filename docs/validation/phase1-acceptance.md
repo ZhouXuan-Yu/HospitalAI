@@ -124,6 +124,33 @@ New evidence:
 
 Remaining M2 gaps:
 
-- Rule draft, review, publish and withdraw write APIs are still pending.
-- Dose calculator interface and deterministic dose rule cases are still pending.
-- Evidence document parsing, block/chunk storage and published-only database retrieval are still pending.
+- Rule governance UI is still pending.
+- Evidence document upload, parsing worker, manual review UI and withdraw API are still pending.
+- FastAPI RAG direct database retrieval is still pending; Core API published-only retrieval is available.
+- Dose calculator still needs richer hospital rule dimensions, unit tests for renal adjustment and special populations, and hospital-reviewed numeric bounds before production.
+
+## 2026-08-03 Dose And Evidence Governance Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+npm --prefix apps/web run test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 9 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Python: 2 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `/api/rules` lifecycle supports draft, submit-review, publish and withdraw, with audit readback.
+- `/api/dose/calculate` returns deterministic guidance from published `dose_rule`; unknown drug/rule returns `rule_not_found`.
+- `/api/evidence/chunks` returns only `published` chunks and excludes `demo_unpublished` evidence from formal retrieval.

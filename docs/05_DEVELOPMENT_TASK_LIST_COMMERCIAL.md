@@ -26,11 +26,11 @@
 ### M2 规则与证据治理
 
 1. 已完成：规则版本表、规则病例表、执行记录表。
-2. 部分完成：发布规则可由 `/api/rules` 查看，推荐打开时记录规则执行；完整草稿、审核、发布、撤回操作待补。
-3. 剂量计算器接口和首批演示规则。
-4. 文件与 EvidenceDocument/DocumentBlock/EvidenceChunk。
-5. 证据审核发布和撤回。
-6. RAG 检索从数据库读取证据片段。
+2. 已完成：规则草稿、提交审核、发布和撤回 API；发布规则可由 `/api/rules` 查看，推荐打开时记录规则执行。
+3. 已完成：剂量计算器接口和首批演示剂量规则；未发布规则或缺规则时返回安全不可用状态，禁止 AI 补写剂量。
+4. 已完成：`EvidenceDocument`、`DocumentBlock`、`EvidenceChunk` 数据库骨架。
+5. 部分完成：正式检索只返回 published evidence chunk；证据上传、解析、人工审核 UI 和撤回 API 待补。
+6. 部分完成：Core API 数据库证据检索已通；FastAPI RAG 直接读取数据库待补。
 
 ### M3 推荐审核闭环
 

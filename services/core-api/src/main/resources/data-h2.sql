@@ -45,7 +45,16 @@ INSERT INTO medication_order(id, encounter_id, patient_id, drug_code, drug_name,
 INSERT INTO medication_exposure(id, patient_id, encounter_id, drug_code, drug_name, started_at, ended_at) VALUES ('EXP-P002-AMOX','P002','E002-1','D-AMOX','阿莫西林克拉维酸钾','2026-05-04 10:00:00','2026-05-06 10:00:00');
 INSERT INTO evidence_document(evidence_id, title, status, version, effective_date, scope, locator, text) VALUES
 ('EV-CAP-001','CAP演示证据集：住院成人初始抗感染路径','demo_unpublished','2026.08-demo','2026-08-03','呼吸内科/社区获得性肺炎','第2页-初始方案','演示证据：候选药物必须来自院内目录；无明确过敏或严重不良反应时，可比较β内酰胺类、头孢菌素类、大环内酯类和喹诺酮类方案。'),
-('EV-CAP-002','CAP演示证据集：监测要求','demo_unpublished','2026.08-demo','2026-08-03','呼吸内科/社区获得性肺炎','第4页-监测项目','演示证据：推荐前需检查过敏史、当前有效用药和关键检验；关键检验缺失时不得按正常值处理。');
+('EV-CAP-002','CAP演示证据集：监测要求','demo_unpublished','2026.08-demo','2026-08-03','呼吸内科/社区获得性肺炎','第4页-监测项目','演示证据：推荐前需检查过敏史、当前有效用药和关键检验；关键检验缺失时不得按正常值处理。'),
+('EV-CAP-PUB-001','院内已发布 CAP 用药路径','published','2026.08-hospital','2026-08-03','呼吸内科/社区获得性肺炎','第1页-发布路径','已发布演示证据：CAP 候选方案必须先通过过敏、ADR、重复用药和关键检验规则。');
+
+INSERT INTO document_block(block_id, evidence_id, block_type, page_label, sort_order, text) VALUES
+('BLK-CAP-PUB-001','EV-CAP-PUB-001','paragraph','第1页',1,'CAP 候选方案必须先通过过敏、ADR、重复用药和关键检验规则。'),
+('BLK-CAP-DEMO-001','EV-CAP-001','paragraph','第2页',1,'演示证据未发布，不得进入正式推荐依据。');
+
+INSERT INTO evidence_chunk(chunk_id, evidence_id, block_id, chunk_text, keywords, status, created_at) VALUES
+('CHK-CAP-PUB-001','EV-CAP-PUB-001','BLK-CAP-PUB-001','CAP 候选方案必须先通过过敏、ADR、重复用药和关键检验规则。','CAP,社区获得性肺炎,过敏,ADR,检验','published','2026-08-03T00:00:00Z'),
+('CHK-CAP-DEMO-001','EV-CAP-001','BLK-CAP-DEMO-001','演示证据未发布，不得进入正式推荐依据。','CAP,演示,未发布','demo_unpublished','2026-08-03T00:00:00Z');
 
 INSERT INTO clinical_rule(rule_id, version, name, status, severity, basis, deterministic_handler, published_at) VALUES
 ('HR-ALG-001','2026.08','已确认药物过敏继承阻断','published-demo','block','项目受控演示规则：确认过敏在后续就诊中继承并阻断对应候选药物。','confirmedAllergyBlock','2026-08-03T00:00:00Z'),
@@ -58,3 +67,7 @@ INSERT INTO clinical_rule_case(case_id, rule_id, rule_version, title, input_ref,
 ('RC-ADR-001','HR-ADR-001','2026.08','严重 ADR 强提醒','E003','blocking=false; level=strong','active'),
 ('RC-XDEPT-001','HR-XDEPT-001','2026.08','跨科室阿奇霉素用药提醒','E004','blocking=false; level=strong','active'),
 ('RC-MISS-001','HR-MISS-001','2026.08','关键检验缺失提示','E005','blocking=false; level=info','active');
+
+INSERT INTO dose_rule(dose_rule_id, drug_code, indication, patient_group, renal_adjustment_required, regimen_text, status, evidence_id, version, updated_at) VALUES
+('DOSE-CAP-CEF-ADULT','D-CEF','社区获得性肺炎','adult',false,'按院内已发布 CAP 路径执行；具体剂量需医生按本院规则表和患者情况确认。','published','EV-CAP-PUB-001','2026.08','2026-08-03T00:00:00Z'),
+('DOSE-CAP-AZI-ADULT','D-AZI','社区获得性肺炎','adult',false,'按院内已发布 CAP 路径执行；合并心电风险或跨科室用药时需药师复核。','published','EV-CAP-PUB-001','2026.08','2026-08-03T00:00:00Z');

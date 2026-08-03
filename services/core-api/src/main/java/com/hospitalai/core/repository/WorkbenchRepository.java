@@ -137,11 +137,69 @@ public class WorkbenchRepository {
     return rules.get(0);
   }
 
+  public void upsertRuleDraft(RuleUpsertRequest request) {
+    Integer count = jdbc.queryForObject("""
+        SELECT COUNT(*) FROM clinical_rule WHERE rule_id = ? AND version = ?
+        """, Integer.class, request.ruleId(), request.version());
+    if (count != null && count > 0) {
+      jdbc.update("""
+          UPDATE clinical_rule
+          SET name = ?, severity = ?, basis = ?, deterministic_handler = ?, status = 'draft', published_at = NULL
+          WHERE rule_id = ? AND version = ?
+          """, request.name(), request.severity(), request.basis(), request.deterministicHandler(), request.ruleId(), request.version());
+    } else {
+      jdbc.update("""
+          INSERT INTO clinical_rule(rule_id, version, name, status, severity, basis, deterministic_handler, published_at)
+          VALUES (?, ?, ?, 'draft', ?, ?, ?, NULL)
+          """, request.ruleId(), request.version(), request.name(), request.severity(), request.basis(), request.deterministicHandler());
+    }
+  }
+
+  public void updateRuleStatus(String ruleId, String version, String status, boolean setPublishedAt) {
+    int updated = jdbc.update("""
+        UPDATE clinical_rule
+        SET status = ?, published_at = CASE WHEN ? THEN ? ELSE published_at END
+        WHERE rule_id = ? AND version = ?
+        """, status, setPublishedAt, Instant.now(), ruleId, version);
+    if (updated == 0) {
+      throw new IllegalArgumentException("clinical rule not found: " + ruleId + "@" + version);
+    }
+  }
+
   public void insertRuleExecution(String recommendationId, String encounterId, SafetyAlert alert) {
     jdbc.update("""
         INSERT INTO rule_execution(execution_id, recommendation_id, encounter_id, rule_id, rule_version, result_level, blocked, matched_facts, message, executed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, "REX-" + UUID.randomUUID(), recommendationId, encounterId, alert.ruleId(), alert.version(), alert.level(), alert.blocking(), String.join(",", alert.facts()), alert.message(), Instant.now());
+  }
+
+  public List<Map<String, Object>> doseRules(String drugCode, String indication, String patientGroup) {
+    return jdbc.queryForList("""
+        SELECT dose_rule_id, drug_code, indication, patient_group, renal_adjustment_required, regimen_text, status, evidence_id, version
+        FROM dose_rule
+        WHERE drug_code = ? AND indication = ? AND patient_group = ? AND status = 'published'
+        ORDER BY updated_at DESC
+        LIMIT 1
+        """, drugCode, indication, patientGroup);
+  }
+
+  public List<EvidenceChunkSummary> publishedEvidenceChunks(String query) {
+    String pattern = "%" + query + "%";
+    return jdbc.query("""
+        SELECT c.chunk_id, d.evidence_id, d.title, d.status, d.version, d.locator, c.chunk_text, c.keywords
+        FROM evidence_chunk c JOIN evidence_document d ON d.evidence_id = c.evidence_id
+        WHERE c.status = 'published' AND d.status = 'published'
+          AND (c.keywords LIKE ? OR c.chunk_text LIKE ? OR d.scope LIKE ?)
+        ORDER BY d.effective_date DESC, c.chunk_id
+        """, (rs, row) -> new EvidenceChunkSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getString(8)), pattern, pattern, pattern);
   }
 
   public void insertDecision(String decisionId, String recommendationId, String encounterId, DecisionRequest request, String actor) {

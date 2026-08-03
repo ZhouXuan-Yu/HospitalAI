@@ -23,7 +23,13 @@ const requiredCorePaths = [
   '/api/worklist',
   '/api/workbench/{encounterId}',
   '/api/integration/his/snapshots/import',
-  '/api/recommendations/{recommendationId}/decision'
+  '/api/recommendations/{recommendationId}/decision',
+  '/api/rules',
+  '/api/rules/{ruleId}/versions/{version}/submit-review',
+  '/api/rules/{ruleId}/versions/{version}/publish',
+  '/api/rules/{ruleId}/versions/{version}/withdraw',
+  '/api/dose/calculate',
+  '/api/evidence/chunks'
 ]
 const requiredHisPaths = [
   '/v1/his/patients/{hisPatientId}/snapshot',

@@ -31,6 +31,47 @@ paths:
       responses:
         "200":
           description: Persisted decision and draft status
+  /api/rules:
+    get:
+      summary: List clinical rules and rule cases.
+      responses:
+        "200":
+          description: Rule governance payload.
+    post:
+      summary: Save or update a clinical rule draft.
+      responses:
+        "200":
+          description: Rule draft status.
+  /api/rules/{ruleId}/versions/{version}/submit-review:
+    post:
+      summary: Submit a rule version for review.
+      responses:
+        "200":
+          description: Rule lifecycle status.
+  /api/rules/{ruleId}/versions/{version}/publish:
+    post:
+      summary: Publish a reviewed rule version.
+      responses:
+        "200":
+          description: Rule lifecycle status.
+  /api/rules/{ruleId}/versions/{version}/withdraw:
+    post:
+      summary: Withdraw a rule version.
+      responses:
+        "200":
+          description: Rule lifecycle status.
+  /api/dose/calculate:
+    post:
+      summary: Calculate dose guidance from published deterministic hospital dose rules.
+      responses:
+        "200":
+          description: Dose calculation result or safe unavailable state.
+  /api/evidence/chunks:
+    get:
+      summary: Search published evidence chunks from the Core API database.
+      responses:
+        "200":
+          description: Published evidence chunks only.
   /api/integration/his/snapshots/import:
     post:
       summary: Import a versioned HIS snapshot into the unified medical model.
