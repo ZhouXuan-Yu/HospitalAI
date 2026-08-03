@@ -123,7 +123,16 @@ export async function submitDecision(recommendationId: string, body: {
   reason: string
   modifiedRegimen?: string
   riskHandling?: Record<string, unknown>
-}) {
+}): Promise<{
+  decisionId: string
+  action: string
+  prescriptionDraftId: string
+  draftStatus: string
+  recommendationStatus: string
+  pharmacistReviewId: string
+  auditEvents: string[]
+  blocked: boolean
+}> {
   const response = await fetch(`/api/recommendations/${recommendationId}/decision`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

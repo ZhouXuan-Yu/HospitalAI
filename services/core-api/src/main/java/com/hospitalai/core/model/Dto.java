@@ -29,7 +29,12 @@ public final class Dto {
   public record StageState(String name, String status, long elapsedMs, String detail) {}
   public record WorkbenchPayload(PatientProfile patient, Encounter encounter, List<Fact> facts, List<SafetyAlert> alerts, List<CandidatePlan> candidates, List<String> missingInfo, List<StageState> stages, String recommendationId, String aiStatus) {}
   public record DecisionRequest(String action, String candidateId, String reason, String modifiedRegimen, Map<String, Object> riskHandling) {}
-  public record DecisionResponse(String decisionId, String action, String prescriptionDraftId, String draftStatus, List<String> auditEvents, boolean blocked) {}
+  public record DecisionResponse(String decisionId, String action, String prescriptionDraftId, String draftStatus, String recommendationStatus, String pharmacistReviewId, List<String> auditEvents, boolean blocked) {}
+  public record RecommendationSnapshotSummary(String recommendationId, String encounterId, String patientId, int dataVersion, String status, int candidateCount, int blockingCount, int strongAlertCount, Instant generatedAt, Instant expiredAt) {}
+  public record PharmacistReviewTaskSummary(String reviewId, String recommendationId, String decisionId, String encounterId, String status, String priority, String reason, String assignedRole, Instant createdAt, Instant resolvedAt, String resolution) {}
+  public record PharmacistReviewResolutionRequest(String resolution) {}
+  public record PrescriptionDraftCallbackRequest(String hisStatus, String hisMessage) {}
+  public record PrescriptionDraftStatus(String draftId, String decisionId, String encounterId, String status, String hisStatus, String hisMessage, Instant callbackAt) {}
   public record SnapshotImportRequest(String sourceSystem, String sourceBatchId, Map<String, Object> payload) {}
   public record SnapshotImportResponse(String eventId, String status, String schemaVersion, int patientsUpserted, int encountersUpserted, int catalogItemsUpserted, int mappingsUpserted, List<String> warnings) {}
 }

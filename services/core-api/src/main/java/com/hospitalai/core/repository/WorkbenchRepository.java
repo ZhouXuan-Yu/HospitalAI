@@ -173,6 +173,89 @@ public class WorkbenchRepository {
         """, "REX-" + UUID.randomUUID(), recommendationId, encounterId, alert.ruleId(), alert.version(), alert.level(), alert.blocking(), String.join(",", alert.facts()), alert.message(), Instant.now());
   }
 
+  public void upsertRecommendationSnapshot(String recommendationId, String encounterId, String patientId, int dataVersion, String status, int candidateCount, int blockingCount, int strongAlertCount) {
+    if (exists("recommendation_snapshot", "recommendation_id", recommendationId)) {
+      jdbc.update("""
+          UPDATE recommendation_snapshot
+          SET status = ?, candidate_count = ?, blocking_count = ?, strong_alert_count = ?
+          WHERE recommendation_id = ?
+          """, status, candidateCount, blockingCount, strongAlertCount, recommendationId);
+    } else {
+      jdbc.update("""
+          INSERT INTO recommendation_snapshot(recommendation_id, encounter_id, patient_id, data_version, status, candidate_count, blocking_count, strong_alert_count, generated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          """, recommendationId, encounterId, patientId, dataVersion, status, candidateCount, blockingCount, strongAlertCount, Instant.now());
+    }
+  }
+
+  public void updateRecommendationStatus(String recommendationId, String status) {
+    jdbc.update("UPDATE recommendation_snapshot SET status = ?, expired_at = CASE WHEN ? = 'expired' THEN ? ELSE expired_at END WHERE recommendation_id = ?",
+        status, status, Instant.now(), recommendationId);
+  }
+
+  public List<RecommendationSnapshotSummary> recommendationSnapshots() {
+    return jdbc.query("""
+        SELECT recommendation_id, encounter_id, patient_id, data_version, status, candidate_count, blocking_count, strong_alert_count, generated_at, expired_at
+        FROM recommendation_snapshot
+        ORDER BY generated_at DESC
+        """, (rs, row) -> new RecommendationSnapshotSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getInt(4),
+        rs.getString(5),
+        rs.getInt(6),
+        rs.getInt(7),
+        rs.getInt(8),
+        rs.getTimestamp(9).toInstant(),
+        rs.getTimestamp(10) == null ? null : rs.getTimestamp(10).toInstant()));
+  }
+
+  public String createPharmacistReviewTask(String recommendationId, String decisionId, String encounterId, String priority, String reason) {
+    String reviewId = "REV-" + UUID.randomUUID();
+    jdbc.update("""
+        INSERT INTO pharmacist_review_task(review_id, recommendation_id, decision_id, encounter_id, status, priority, reason, assigned_role, created_at)
+        VALUES (?, ?, ?, ?, 'pending', ?, ?, 'pharmacist', ?)
+        """, reviewId, recommendationId, decisionId, encounterId, priority, reason, Instant.now());
+    return reviewId;
+  }
+
+  public List<PharmacistReviewTaskSummary> pharmacistReviews(String status) {
+    String sql = """
+        SELECT review_id, recommendation_id, decision_id, encounter_id, status, priority, reason, assigned_role, created_at, resolved_at, resolution
+        FROM pharmacist_review_task
+        """;
+    Object[] args = new Object[] {};
+    if (status != null && !status.isBlank()) {
+      sql += " WHERE status = ?";
+      args = new Object[] { status };
+    }
+    sql += " ORDER BY created_at DESC";
+    return jdbc.query(sql, (rs, row) -> new PharmacistReviewTaskSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getString(8),
+        rs.getTimestamp(9).toInstant(),
+        rs.getTimestamp(10) == null ? null : rs.getTimestamp(10).toInstant(),
+        rs.getString(11)), args);
+  }
+
+  public void resolvePharmacistReview(String reviewId, String resolution) {
+    int updated = jdbc.update("""
+        UPDATE pharmacist_review_task
+        SET status = 'resolved', resolved_at = ?, resolution = ?
+        WHERE review_id = ? AND status = 'pending'
+        """, Instant.now(), resolution, reviewId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("pending pharmacist review not found: " + reviewId);
+    }
+  }
+
   public List<Map<String, Object>> doseRules(String drugCode, String indication, String patientGroup) {
     return jdbc.queryForList("""
         SELECT dose_rule_id, drug_code, indication, patient_group, renal_adjustment_required, regimen_text, status, evidence_id, version
@@ -281,11 +364,46 @@ public class WorkbenchRepository {
         """, decisionId, recommendationId, encounterId, request.candidateId(), request.action(), request.modifiedRegimen(), request.reason(), actor, Instant.now());
   }
 
-  public String insertDraft(String decisionId, String encounterId) {
+  public String insertDraft(String decisionId, String encounterId, String idempotencyKey) {
+    var existing = draftByIdempotencyKey(idempotencyKey);
+    if (existing != null) {
+      return existing.get("draft_id").toString();
+    }
     var draftId = "DRAFT-" + UUID.randomUUID();
-    jdbc.update("INSERT INTO prescription_draft(draft_id, decision_id, encounter_id, status, idempotency_key, created_at) VALUES (?, ?, ?, 'SIMULATED_DRAFT_WRITTEN', ?, ?)",
-        draftId, decisionId, encounterId, "draft-" + decisionId, Instant.now());
+    jdbc.update("INSERT INTO prescription_draft(draft_id, decision_id, encounter_id, status, idempotency_key, created_at) VALUES (?, ?, ?, 'draft_written', ?, ?)",
+        draftId, decisionId, encounterId, idempotencyKey, Instant.now());
     return draftId;
+  }
+
+  public Map<String, Object> draftByIdempotencyKey(String idempotencyKey) {
+    var rows = jdbc.queryForList("SELECT draft_id, status FROM prescription_draft WHERE idempotency_key = ?", idempotencyKey);
+    return rows.isEmpty() ? null : rows.get(0);
+  }
+
+  public PrescriptionDraftStatus draft(String draftId) {
+    return jdbc.queryForObject("""
+        SELECT draft_id, decision_id, encounter_id, status, his_status, his_message, callback_at
+        FROM prescription_draft
+        WHERE draft_id = ?
+        """, (rs, row) -> new PrescriptionDraftStatus(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toInstant()), draftId);
+  }
+
+  public void updateDraftCallback(String draftId, String status, String hisStatus, String hisMessage) {
+    int updated = jdbc.update("""
+        UPDATE prescription_draft
+        SET status = ?, his_status = ?, his_message = ?, callback_at = ?
+        WHERE draft_id = ?
+        """, status, hisStatus, hisMessage, Instant.now(), draftId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("prescription draft not found: " + draftId);
+    }
   }
 
   public void audit(String actor, String action, String objectId, String detail) {
@@ -393,14 +511,17 @@ public class WorkbenchRepository {
   }
 
   public Map<String, Object> latestPersistenceSnapshot() {
-    return Map.of(
-        "decisionCount", jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_decision", Integer.class),
-        "draftCount", jdbc.queryForObject("SELECT COUNT(*) FROM prescription_draft", Integer.class),
-        "auditCount", jdbc.queryForObject("SELECT COUNT(*) FROM audit_log", Integer.class),
-        "latestDrafts", jdbc.queryForList("SELECT draft_id, status, encounter_id FROM prescription_draft ORDER BY created_at DESC LIMIT 5"),
-        "latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"),
-        "latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5"),
-        "latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5")
-    );
+    var snapshot = new java.util.LinkedHashMap<String, Object>();
+    snapshot.put("decisionCount", jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_decision", Integer.class));
+    snapshot.put("draftCount", jdbc.queryForObject("SELECT COUNT(*) FROM prescription_draft", Integer.class));
+    snapshot.put("auditCount", jdbc.queryForObject("SELECT COUNT(*) FROM audit_log", Integer.class));
+    snapshot.put("reviewCount", jdbc.queryForObject("SELECT COUNT(*) FROM pharmacist_review_task", Integer.class));
+    snapshot.put("recommendationSnapshotCount", jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_snapshot", Integer.class));
+    snapshot.put("latestDrafts", jdbc.queryForList("SELECT draft_id, status, his_status, encounter_id FROM prescription_draft ORDER BY created_at DESC LIMIT 5"));
+    snapshot.put("latestReviews", jdbc.queryForList("SELECT review_id, status, priority, reason FROM pharmacist_review_task ORDER BY created_at DESC LIMIT 5"));
+    snapshot.put("latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"));
+    snapshot.put("latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5"));
+    snapshot.put("latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5"));
+    return snapshot;
   }
 }

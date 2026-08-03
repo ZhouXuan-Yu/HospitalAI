@@ -184,3 +184,39 @@ New evidence:
 - `/api/evidence/documents/{evidenceId}/publish` makes chunks visible through `/api/evidence/chunks`.
 - `/api/evidence/documents/{evidenceId}/withdraw` removes chunks from formal retrieval.
 - FastAPI `POST /v1/evidence/retrieve` can use `CORE_API_BASE_URL` to retrieve Core API published chunks and returns an explicit degradation result if Core API evidence retrieval is unavailable.
+
+## 2026-08-03 Recommendation Review State Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+npm --prefix apps/web run test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 12 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Python: 4 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `GET /api/workbench/E004` generates a recommendation snapshot and executes hard rules.
+- `POST /api/recommendations/REC-E004-v5/decision` on a strong-alert case creates a pharmacist review task and a draft with idempotency key.
+- `GET /api/pharmacist/reviews?status=pending` returns the generated review task.
+- `POST /api/pharmacist/reviews/{reviewId}/resolve` resolves the task and audits the operation.
+- `POST /api/prescription-drafts/{draftId}/callback` records HIS callback status such as `his_confirmed`.
+- Hard-blocked allergy case `REC-E002-2-v4` returns `blocked_by_hard_rule` and does not create a draft.
+
+Remaining M3 gaps:
+
+- Recommendation expiration on source data version change is still pending.
+- Structured field-level medication diff is still pending.
+- Dedicated cross-department collaboration task model is still pending.
+- Real HIS adapter network write, retry and dead-letter handling are still pending.

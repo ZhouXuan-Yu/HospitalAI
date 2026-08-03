@@ -220,13 +220,44 @@ CREATE TABLE IF NOT EXISTS recommendation_decision (
   created_at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS recommendation_snapshot (
+  recommendation_id TEXT PRIMARY KEY,
+  encounter_id TEXT NOT NULL,
+  patient_id TEXT NOT NULL,
+  data_version INT NOT NULL,
+  status TEXT NOT NULL,
+  candidate_count INT NOT NULL,
+  blocking_count INT NOT NULL,
+  strong_alert_count INT NOT NULL,
+  generated_at TIMESTAMPTZ NOT NULL,
+  expired_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS pharmacist_review_task (
+  review_id TEXT PRIMARY KEY,
+  recommendation_id TEXT NOT NULL,
+  decision_id TEXT,
+  encounter_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  assigned_role TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  resolved_at TIMESTAMPTZ,
+  resolution TEXT
+);
+
 CREATE TABLE IF NOT EXISTS prescription_draft (
   draft_id TEXT PRIMARY KEY,
   decision_id TEXT NOT NULL,
   encounter_id TEXT NOT NULL,
   status TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
+  created_at TIMESTAMPTZ NOT NULL,
+  his_status TEXT,
+  his_message TEXT,
+  callback_at TIMESTAMPTZ,
+  UNIQUE (idempotency_key)
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (

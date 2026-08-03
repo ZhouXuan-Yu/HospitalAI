@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS prescription_draft;
+DROP TABLE IF EXISTS pharmacist_review_task;
+DROP TABLE IF EXISTS recommendation_snapshot;
 DROP TABLE IF EXISTS recommendation_decision;
 DROP TABLE IF EXISTS rule_execution;
 DROP TABLE IF EXISTS evidence_chunk;
@@ -43,5 +45,7 @@ CREATE TABLE rule_execution (execution_id TEXT PRIMARY KEY, recommendation_id TE
 CREATE TABLE document_block (block_id TEXT PRIMARY KEY, evidence_id TEXT NOT NULL, block_type TEXT NOT NULL, page_label TEXT NOT NULL, sort_order INT NOT NULL, text TEXT NOT NULL);
 CREATE TABLE evidence_chunk (chunk_id TEXT PRIMARY KEY, evidence_id TEXT NOT NULL, block_id TEXT NOT NULL, chunk_text TEXT NOT NULL, keywords TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
 CREATE TABLE recommendation_decision (decision_id TEXT PRIMARY KEY, recommendation_id TEXT NOT NULL, encounter_id TEXT NOT NULL, candidate_id TEXT NOT NULL, action TEXT NOT NULL, original_version TEXT NOT NULL, modified_regimen TEXT, reason TEXT NOT NULL, actor TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
-CREATE TABLE prescription_draft (draft_id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, encounter_id TEXT NOT NULL, status TEXT NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
+CREATE TABLE recommendation_snapshot (recommendation_id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, patient_id TEXT NOT NULL, data_version INT NOT NULL, status TEXT NOT NULL, candidate_count INT NOT NULL, blocking_count INT NOT NULL, strong_alert_count INT NOT NULL, generated_at TIMESTAMP NOT NULL, expired_at TIMESTAMP);
+CREATE TABLE pharmacist_review_task (review_id TEXT PRIMARY KEY, recommendation_id TEXT NOT NULL, decision_id TEXT, encounter_id TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL, reason TEXT NOT NULL, assigned_role TEXT NOT NULL, created_at TIMESTAMP NOT NULL, resolved_at TIMESTAMP, resolution TEXT);
+CREATE TABLE prescription_draft (draft_id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, encounter_id TEXT NOT NULL, status TEXT NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMP NOT NULL, his_status TEXT, his_message TEXT, callback_at TIMESTAMP, UNIQUE (idempotency_key));
 CREATE TABLE audit_log (audit_id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, object_id TEXT NOT NULL, detail TEXT NOT NULL, created_at TIMESTAMP NOT NULL);

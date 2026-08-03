@@ -31,6 +31,36 @@ paths:
       responses:
         "200":
           description: Persisted decision and draft status
+  /api/recommendations:
+    get:
+      summary: List generated recommendation snapshots and state.
+      responses:
+        "200":
+          description: Recommendation snapshots.
+  /api/pharmacist/reviews:
+    get:
+      summary: List pharmacist review tasks.
+      responses:
+        "200":
+          description: Pharmacist review queue.
+  /api/pharmacist/reviews/{reviewId}/resolve:
+    post:
+      summary: Resolve a pending pharmacist review task.
+      responses:
+        "200":
+          description: Review resolution state.
+  /api/prescription-drafts/{draftId}:
+    get:
+      summary: Read prescription draft state.
+      responses:
+        "200":
+          description: Prescription draft state.
+  /api/prescription-drafts/{draftId}/callback:
+    post:
+      summary: Receive HIS adapter final status callback for a draft.
+      responses:
+        "200":
+          description: Updated prescription draft state.
   /api/rules:
     get:
       summary: List clinical rules and rule cases.

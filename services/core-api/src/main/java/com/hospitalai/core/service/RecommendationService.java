@@ -48,6 +48,10 @@ public class RecommendationService {
     var missing = repo.missingLabs(encounterId).stream().map(row -> row.get("name") + " 缺失，来源 " + row.get("source_id")).toList();
     var candidates = buildCandidates(patient.patientId(), alerts, evidence, missing);
     stages.add(stage("candidate_ranking", "complete", started, "候选仅来自模拟院内药品目录，演示规则不含自由剂量生成"));
+    repo.upsertRecommendationSnapshot(recommendationId, encounterId, patient.patientId(), encounter.dataVersion(), "generated",
+        candidates.size(),
+        (int) alerts.stream().filter(SafetyAlert::blocking).count(),
+        (int) alerts.stream().filter(alert -> "strong".equals(alert.level())).count());
 
     repo.audit(actor, "WORKBENCH_OPENED", encounterId, "opened recommendation " + recommendationId);
     return new WorkbenchPayload(patient, encounter, facts, alerts, candidates, missing, stages, recommendationId, evidence.isEmpty() ? "degraded" : "deterministic-demo");
@@ -60,20 +64,34 @@ public class RecommendationService {
         .orElseThrow(() -> new IllegalArgumentException("unknown candidate"));
     var blockingMessages = payload.alerts().stream().filter(SafetyAlert::blocking).map(SafetyAlert::message).toList();
     if (selected.blocked() || !blockingMessages.isEmpty()) {
+      repo.updateRecommendationStatus(recommendationId, "blocked");
       repo.audit(actor, "DECISION_BLOCKED", recommendationId, String.join("; ", blockingMessages));
-      return new DecisionResponse("", request.action(), "", "BLOCKED_BY_HARD_RULE", List.of("DECISION_BLOCKED"), true);
+      return new DecisionResponse("", request.action(), "", "blocked_by_hard_rule", "blocked", "", List.of("DECISION_BLOCKED"), true);
     }
     var decisionId = "DEC-" + UUID.randomUUID();
     repo.insertDecision(decisionId, recommendationId, encounterId, request, actor);
     repo.audit(actor, "RECOMMENDATION_DECIDED", decisionId, request.action() + " candidate " + request.candidateId());
     var draftId = "";
     var draftStatus = "NO_DRAFT_FOR_REJECTION";
-    if (!"reject".equalsIgnoreCase(request.action())) {
-      draftId = repo.insertDraft(decisionId, encounterId);
-      draftStatus = "SIMULATED_DRAFT_WRITTEN";
-      repo.audit(actor, "HIS_DRAFT_WRITE_SIMULATED", draftId, "处方草稿模拟回写，非正式医嘱");
+    var reviewId = "";
+    var strongAlerts = payload.alerts().stream().filter(alert -> "strong".equals(alert.level())).map(SafetyAlert::message).toList();
+    if (!strongAlerts.isEmpty()) {
+      reviewId = repo.createPharmacistReviewTask(recommendationId, decisionId, encounterId, "high", String.join("; ", strongAlerts));
+      repo.audit(actor, "PHARMACIST_REVIEW_CREATED", reviewId, "strong alert review required");
     }
-    return new DecisionResponse(decisionId, request.action(), draftId, draftStatus, List.of("RECOMMENDATION_DECIDED", "HIS_DRAFT_WRITE_SIMULATED"), false);
+    if (!"reject".equalsIgnoreCase(request.action())) {
+      var idempotencyKey = "draft-" + recommendationId + "-" + request.candidateId() + "-" + request.action();
+      draftId = repo.insertDraft(decisionId, encounterId, idempotencyKey);
+      draftStatus = "draft_written";
+      repo.audit(actor, "HIS_DRAFT_WRITE_REQUESTED", draftId, "处方草稿幂等回写请求，非正式医嘱");
+    }
+    var recommendationStatus = reviewId.isBlank() ? "decided" : "pharmacist_review_pending";
+    repo.updateRecommendationStatus(recommendationId, recommendationStatus);
+    var events = new ArrayList<String>();
+    events.add("RECOMMENDATION_DECIDED");
+    if (!reviewId.isBlank()) events.add("PHARMACIST_REVIEW_CREATED");
+    if (!draftId.isBlank()) events.add("HIS_DRAFT_WRITE_REQUESTED");
+    return new DecisionResponse(decisionId, request.action(), draftId, draftStatus, recommendationStatus, reviewId, events, false);
   }
 
   List<SafetyAlert> evaluateRules(Encounter encounter, PatientProfile patient) {

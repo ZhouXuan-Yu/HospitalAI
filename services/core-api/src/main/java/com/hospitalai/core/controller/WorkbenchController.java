@@ -9,6 +9,11 @@ import com.hospitalai.core.model.Dto.EvidenceDocumentRequest;
 import com.hospitalai.core.model.Dto.EvidenceDocumentSummary;
 import com.hospitalai.core.model.Dto.EvidenceLifecycleResponse;
 import com.hospitalai.core.model.Dto.EvidenceParseRequest;
+import com.hospitalai.core.model.Dto.PharmacistReviewResolutionRequest;
+import com.hospitalai.core.model.Dto.PharmacistReviewTaskSummary;
+import com.hospitalai.core.model.Dto.PrescriptionDraftCallbackRequest;
+import com.hospitalai.core.model.Dto.PrescriptionDraftStatus;
+import com.hospitalai.core.model.Dto.RecommendationSnapshotSummary;
 import com.hospitalai.core.model.Dto.RuleLifecycleResponse;
 import com.hospitalai.core.model.Dto.RuleUpsertRequest;
 import com.hospitalai.core.model.Dto.SnapshotImportRequest;
@@ -119,9 +124,49 @@ public class WorkbenchController {
     return service.buildWorkbench(encounterId);
   }
 
+  @GetMapping("/recommendations")
+  public List<RecommendationSnapshotSummary> recommendations() {
+    return repository.recommendationSnapshots();
+  }
+
   @PostMapping("/recommendations/{recommendationId}/decision")
   public DecisionResponse decide(@PathVariable String recommendationId, @RequestBody DecisionRequest request) {
     return service.decide(recommendationId, request);
+  }
+
+  @GetMapping("/pharmacist/reviews")
+  public List<PharmacistReviewTaskSummary> pharmacistReviews(@RequestParam(required = false) String status) {
+    return repository.pharmacistReviews(status);
+  }
+
+  @PostMapping("/pharmacist/reviews/{reviewId}/resolve")
+  public Map<String, Object> resolvePharmacistReview(@PathVariable String reviewId, @RequestBody PharmacistReviewResolutionRequest request) {
+    if (request == null || request.resolution() == null || request.resolution().isBlank()) {
+      throw new IllegalArgumentException("resolution is required");
+    }
+    repository.resolvePharmacistReview(reviewId, request.resolution());
+    repository.audit("pharmacist_demo", "PHARMACIST_REVIEW_RESOLVED", reviewId, request.resolution());
+    return Map.of("reviewId", reviewId, "status", "resolved");
+  }
+
+  @GetMapping("/prescription-drafts/{draftId}")
+  public PrescriptionDraftStatus prescriptionDraft(@PathVariable String draftId) {
+    return repository.draft(draftId);
+  }
+
+  @PostMapping("/prescription-drafts/{draftId}/callback")
+  public PrescriptionDraftStatus prescriptionDraftCallback(@PathVariable String draftId, @RequestBody PrescriptionDraftCallbackRequest request) {
+    if (request == null || request.hisStatus() == null || request.hisStatus().isBlank()) {
+      throw new IllegalArgumentException("hisStatus is required");
+    }
+    String status = switch (request.hisStatus()) {
+      case "his_confirmed" -> "his_confirmed";
+      case "his_cancelled" -> "his_cancelled";
+      default -> "callback_received";
+    };
+    repository.updateDraftCallback(draftId, status, request.hisStatus(), request.hisMessage());
+    repository.audit("his_adapter", "HIS_DRAFT_CALLBACK_RECEIVED", draftId, request.hisStatus());
+    return repository.draft(draftId);
   }
 
   @PostMapping("/integration/his/snapshots/import")
