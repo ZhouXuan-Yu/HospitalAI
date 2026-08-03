@@ -43,6 +43,8 @@ public final class Dto {
   public record TimelineEventSummary(String eventId, String patientId, String encounterId, String eventType, String drugCode, String drugName, Instant eventTime, String sourceSystem, String sourceId, String detail) {}
   public record MedicationFeedbackRequest(String patientId, String encounterId, String drugCode, String effectiveness, String adverseSignal, String reporterRole, String note) {}
   public record MedicationFeedbackSummary(String feedbackId, String patientId, String encounterId, String drugCode, String effectiveness, String adverseSignal, String reporterRole, String note, Instant recordedAt) {}
+  public record AdverseDrugReactionSummary(String adrId, String patientId, String drugCode, String drugName, String severity, String reviewStatus, String sourceId, Instant reviewedAt) {}
+  public record AdverseDrugReactionReviewRequest(String decision, String note) {}
   public record DischargeOutcomeRequest(String patientId, String encounterId, String outcomeStatus, String readmissionRisk, boolean followupRequired, String note) {}
   public record DischargeOutcomeSummary(String outcomeId, String patientId, String encounterId, String outcomeStatus, String readmissionRisk, boolean followupRequired, String note, Instant recordedAt) {}
   public record ResearchCohortRequest(String cohortId, String name, String diseaseScope, String inclusionCriteria, String exclusionCriteria) {}

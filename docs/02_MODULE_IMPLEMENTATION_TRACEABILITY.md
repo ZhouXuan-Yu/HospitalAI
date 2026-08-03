@@ -15,7 +15,7 @@
 | R-008 | 医生审核 | 保留最终决策权 | 采纳、修改、驳回、差异、理由 | 部分完成：决策落库、推荐状态更新、阻断不可生成草稿、regimen diff 和数据版本过期已通；更细字段级 diff 待补 | `decision` 模块、Web 矩阵 | 修改前后差异、驳回无草稿 |
 | R-009 | 药师复核 | 高风险闭环处理 | 审方队列、沟通、处理结果 | 部分完成：强提醒自动创建药师复核任务，跨科室协同任务独立建模，支持查询和解决；药师工作台 UI 待补 | `pharmacist-review`、`collaboration-task` 模块 | 阻断、强提醒、跨科室协同 |
 | R-010 | HIS 草稿回写 | 不写正式医嘱但可落地 | 幂等、失败、重试、最终回调 | 部分完成：草稿幂等键、可靠写入任务、失败重试状态、状态查询、HIS callback API 已通；真实 adapter Worker 待补 | `prescription-draft`、HIS adapter | 重复提交、接口失败、状态回调 |
-| R-011 | 长期追踪 | 历史风险继承 | 用药事件链、反馈、出院、再入院 | 部分完成：`medication_timeline_event`、`medication_feedback`、`discharge_outcome` 表和 API 已通；推荐审核后可追加事件，反馈/结局可回读；ADR 升级确认和再入院自动摘要待补 | `medication-timeline`、`feedback`、`outcome` API | 二次入院继承、换药原因、出院结局、严重 ADR 升级 |
+| R-011 | 长期追踪 | 历史风险继承 | 用药事件链、反馈、出院、再入院 | 部分完成：`medication_timeline_event`、`medication_feedback`、`discharge_outcome` 表和 API 已通；严重反馈信号可生成 ADR 审核，确认后进入后续推荐强提醒；再入院自动摘要、药师 UI 和权限待补 | `medication-timeline`、`feedback`、`outcome`、`adr-review` API | 二次入院继承、换药原因、出院结局、严重 ADR 升级 |
 | R-012 | 科研数据 | 支撑报告草稿 | 队列、变量、数据质量、冻结、统计、脱敏导出 | 部分完成：研究队列、变量字典、质量检查、冻结版本、统计任务、Java Worker HTTP 调用 FastAPI、统计运行记录、统计产物落盘、脱敏导出记录、导出文件落盘、artifact 回读和报告草稿审核 API 已通；下载权限和复现实验目录待补 | `research` 模块、`research_cohort`、`research_variable`、`research_dataset_quality_check`、`research_analysis_task`、`research_analysis_run`、`research_deidentified_export`、`research_report_draft` | 缺失统计、版本复现、脱敏导出、报告审核 |
 | R-013 | 知识审核 | 防止未审核结论反哺 | 多人审核、发布、撤回 | 部分完成：已审核报告可提交知识候选，两类角色批准后发布，支持撤回和审计；正式知识库 UI、引用控制和知识分类权限待补 | `knowledge_submission`、`knowledge_submission_review` | 未审核不可引用、双人审核、发布撤回 |
 | R-014 | 权限与审计 | 医院合规 | OIDC、票据、RBAC/ABAC、审计不可删 | 开发放行；导入、规则执行、推荐审核已有审计/执行记录，权限边界待增强 | `security`、`audit` | 越权、票据重放、审计删除失败 |

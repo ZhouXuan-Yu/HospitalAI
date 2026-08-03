@@ -35,6 +35,8 @@ const requiredCorePaths = [
   '/api/prescription-draft-write-tasks/{taskId}/mark-failed',
   '/api/patients/{patientId}/timeline',
   '/api/patients/{patientId}/feedback',
+  '/api/adr/reviews',
+  '/api/adr/reviews/{adrId}/resolve',
   '/api/patients/{patientId}/outcomes',
   '/api/research/cohorts',
   '/api/research/cohorts/{cohortId}/variables',

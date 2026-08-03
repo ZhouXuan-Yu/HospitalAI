@@ -2,6 +2,8 @@ package com.hospitalai.core.controller;
 
 import com.hospitalai.core.model.Dto.DecisionRequest;
 import com.hospitalai.core.model.Dto.DecisionResponse;
+import com.hospitalai.core.model.Dto.AdverseDrugReactionReviewRequest;
+import com.hospitalai.core.model.Dto.AdverseDrugReactionSummary;
 import com.hospitalai.core.model.Dto.DoseRequest;
 import com.hospitalai.core.model.Dto.DoseResponse;
 import com.hospitalai.core.model.Dto.CollaborationResolutionRequest;
@@ -257,8 +259,27 @@ public class WorkbenchController {
     repository.audit("tracking_demo", "MEDICATION_FEEDBACK_RECORDED", feedback.feedbackId(), feedback.adverseSignal());
     if (!"none".equalsIgnoreCase(feedback.adverseSignal())) {
       repository.insertTimelineEvent(new TimelineEventRequest(patientId, request.encounterId(), "adverse_signal", request.drugCode(), "", "HospitalAI", feedback.feedbackId(), feedback.note()));
+      if (isSeriousAdverseSignal(feedback.adverseSignal())) {
+        var adr = repository.createAdverseDrugReactionReview(feedback);
+        repository.audit("tracking_demo", "ADR_REVIEW_CREATED", adr.adrId(), feedback.adverseSignal());
+      }
     }
     return feedback;
+  }
+
+  @GetMapping("/adr/reviews")
+  public List<AdverseDrugReactionSummary> adrReviews(@RequestParam(required = false) String status) {
+    return repository.adverseDrugReactionReviews(status);
+  }
+
+  @PostMapping("/adr/reviews/{adrId}/resolve")
+  public AdverseDrugReactionSummary resolveAdrReview(@PathVariable String adrId, @RequestBody AdverseDrugReactionReviewRequest request) {
+    if (request == null || request.decision() == null || request.decision().isBlank()) {
+      throw new IllegalArgumentException("decision is required");
+    }
+    var adr = repository.resolveAdverseDrugReaction(adrId, request.decision());
+    repository.audit("pharmacist_demo", "ADR_REVIEW_RESOLVED", adrId, adr.reviewStatus() + ": " + (request.note() == null ? "" : request.note()));
+    return adr;
   }
 
   @GetMapping("/patients/{patientId}/outcomes")
@@ -438,5 +459,17 @@ public class WorkbenchController {
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public Map<String, Object> badRequest(IllegalArgumentException ex) {
     return Map.of("error", ex.getMessage());
+  }
+
+  private static boolean isSeriousAdverseSignal(String value) {
+    if (value == null) {
+      return false;
+    }
+    String signal = value.toLowerCase();
+    return signal.contains("severe")
+        || signal.contains("serious")
+        || signal.contains("anaphylaxis")
+        || signal.contains("严重")
+        || signal.contains("休克");
   }
 }

@@ -383,4 +383,37 @@ New evidence:
 Remaining M4/M5 gaps:
 
 - Automatic scheduled worker loop, stricter lease ownership fields and concurrent claim hardening are still pending.
-- Artifact authorization, formal knowledge UI, ADR escalation and M5 operational gates remain pending.
+- Artifact authorization, formal knowledge UI, pharmacist-facing ADR workbench and M5 operational gates remain pending.
+
+## 2026-08-03 M4 ADR Escalation Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 18 passed, 0 failed.
+- Contract validation: passed.
+- Python: 5 passed, 0 failed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `POST /api/patients/{patientId}/feedback` records severe adverse feedback and creates an `adverse_drug_reaction` row with `review_status=review_pending`.
+- `GET /api/adr/reviews?status=review_pending` exposes the pending ADR review queue.
+- `POST /api/adr/reviews/{adrId}/resolve` confirms or rejects ADR; confirmation changes status to `reviewed`.
+- Confirmed severe ADR is then read by `severeAdrs()` and appears as `HR-ADR-001` strong alert when the doctor opens the workbench again.
+- The flow preserves the safety boundary: clinician feedback does not directly become a formal rule or formal knowledge item without pharmacist review.
+
+Remaining M4/M5 gaps:
+
+- Pharmacist UI, finer role authorization and formal knowledge citation controls remain pending.
+- M5 operational gates remain pending.

@@ -107,6 +107,18 @@ paths:
       responses:
         "200":
           description: Medication feedback.
+  /api/adr/reviews:
+    get:
+      summary: List adverse drug reaction review records by status.
+      responses:
+        "200":
+          description: ADR review queue.
+  /api/adr/reviews/{adrId}/resolve:
+    post:
+      summary: Confirm or reject an adverse drug reaction review.
+      responses:
+        "200":
+          description: Updated ADR review status.
   /api/patients/{patientId}/outcomes:
     get:
       summary: List discharge outcomes for a patient.

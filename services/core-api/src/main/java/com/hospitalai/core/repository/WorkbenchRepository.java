@@ -85,6 +85,11 @@ public class WorkbenchRepository {
     return jdbc.queryForList("SELECT drug_code, drug_name, severity, source_id FROM adverse_drug_reaction WHERE patient_id = ? AND severity = 'severe' AND review_status = 'reviewed'", patientId);
   }
 
+  public String drugName(String drugCode) {
+    var names = jdbc.queryForList("SELECT name FROM drug_catalog WHERE drug_code = ?", String.class, drugCode);
+    return names.isEmpty() ? drugCode : names.get(0);
+  }
+
   public List<Map<String, Object>> activeOrders(String patientId) {
     return jdbc.queryForList("SELECT drug_code, drug_name, pharmacology_class, department, source_id FROM medication_order WHERE patient_id = ? AND status = 'active'", patientId);
   }
@@ -545,6 +550,57 @@ public class WorkbenchRepository {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, feedbackId, request.patientId(), request.encounterId(), request.drugCode(), request.effectiveness(), request.adverseSignal(), request.reporterRole(), request.note(), now);
     return new MedicationFeedbackSummary(feedbackId, request.patientId(), request.encounterId(), request.drugCode(), request.effectiveness(), request.adverseSignal(), request.reporterRole(), request.note(), now);
+  }
+
+  public AdverseDrugReactionSummary createAdverseDrugReactionReview(MedicationFeedbackSummary feedback) {
+    String adrId = "ADR-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    String severity = severeSignal(feedback.adverseSignal()) ? "severe" : "moderate";
+    String drugName = drugName(feedback.drugCode());
+    jdbc.update("""
+        INSERT INTO adverse_drug_reaction(id, patient_id, drug_code, drug_name, severity, review_status, source_id, reviewed_at)
+        VALUES (?, ?, ?, ?, ?, 'review_pending', ?, ?)
+        """, adrId, feedback.patientId(), feedback.drugCode(), drugName, severity, feedback.feedbackId(), now);
+    return new AdverseDrugReactionSummary(adrId, feedback.patientId(), feedback.drugCode(), drugName, severity, "review_pending", feedback.feedbackId(), now);
+  }
+
+  public List<AdverseDrugReactionSummary> adverseDrugReactionReviews(String status) {
+    String sql = """
+        SELECT id, patient_id, drug_code, drug_name, severity, review_status, source_id, reviewed_at
+        FROM adverse_drug_reaction
+        """;
+    if (status == null || status.isBlank()) {
+      return jdbc.query(sql + "ORDER BY reviewed_at DESC", this::mapAdverseDrugReaction);
+    }
+    return jdbc.query(sql + "WHERE review_status = ? ORDER BY reviewed_at DESC", this::mapAdverseDrugReaction, status);
+  }
+
+  public AdverseDrugReactionSummary resolveAdverseDrugReaction(String adrId, String decision) {
+    String reviewStatus = switch (blankToDefault(decision, "confirm")) {
+      case "confirm", "reviewed", "approve" -> "reviewed";
+      case "reject", "rejected" -> "rejected";
+      default -> throw new IllegalArgumentException("decision must be confirm or reject");
+    };
+    int updated = jdbc.update("UPDATE adverse_drug_reaction SET review_status = ?, reviewed_at = ? WHERE id = ?",
+        reviewStatus, Instant.now(), adrId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("ADR review not found: " + adrId);
+    }
+    return adverseDrugReaction(adrId);
+  }
+
+  private AdverseDrugReactionSummary adverseDrugReaction(String adrId) {
+    return jdbc.queryForObject("""
+        SELECT id, patient_id, drug_code, drug_name, severity, review_status, source_id, reviewed_at
+        FROM adverse_drug_reaction
+        WHERE id = ?
+        """, this::mapAdverseDrugReaction, adrId);
+  }
+
+  private AdverseDrugReactionSummary mapAdverseDrugReaction(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+    return new AdverseDrugReactionSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getString(7), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant());
   }
 
   public List<MedicationFeedbackSummary> feedback(String patientId) {
@@ -1240,6 +1296,18 @@ public class WorkbenchRepository {
 
   private static String blankToDefault(String value, String fallback) {
     return value == null || value.isBlank() ? fallback : value;
+  }
+
+  private static boolean severeSignal(String value) {
+    if (value == null) {
+      return false;
+    }
+    String signal = value.toLowerCase();
+    return signal.contains("severe")
+        || signal.contains("serious")
+        || signal.contains("anaphylaxis")
+        || signal.contains("严重")
+        || signal.contains("休克");
   }
 
   private static String sha256(String value) {

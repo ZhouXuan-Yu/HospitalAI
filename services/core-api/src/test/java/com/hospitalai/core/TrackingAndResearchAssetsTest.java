@@ -135,6 +135,44 @@ class TrackingAndResearchAssetsTest {
   }
 
   @Test
+  void escalatesSeriousFeedbackToReviewedAdrAndFutureStrongAlert() throws Exception {
+    mvc.perform(post("/api/patients/P001/feedback")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "encounterId": "E001",
+                  "drugCode": "D-LEV",
+                  "effectiveness": "unknown",
+                  "adverseSignal": "severe_rash_signal",
+                  "reporterRole": "doctor",
+                  "note": "出现严重皮疹信号，先进入药师 ADR 审核，不能直接成为正式知识。"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.adverseSignal", is("severe_rash_signal")));
+
+    String reviewJson = mvc.perform(get("/api/adr/reviews").param("status", "review_pending"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].patientId", is("P001")))
+        .andExpect(jsonPath("$[0].severity", is("severe")))
+        .andReturn().getResponse().getContentAsString();
+    String adrId = mapper.readTree(reviewJson).get(0).get("adrId").asText();
+
+    mvc.perform(post("/api/adr/reviews/" + adrId + "/resolve")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "decision": "confirm", "note": "药师确认严重 ADR，后续就诊必须强提醒。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.reviewStatus", is("reviewed")));
+
+    mvc.perform(get("/api/workbench/E001"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.alerts[*].ruleId", hasItem("HR-ADR-001")))
+        .andExpect(jsonPath("$.alerts[*].message", hasItem(containsString("左氧氟沙星"))));
+  }
+
+  @Test
   void createsQualityChecksFreezesCohortAndGeneratesReviewedReportDraft() throws Exception {
     mvc.perform(post("/api/research/cohorts")
             .contentType(MediaType.APPLICATION_JSON)
