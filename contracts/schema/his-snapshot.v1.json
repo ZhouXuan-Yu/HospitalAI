@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hospitalai.local/contracts/his-snapshot.v1.json",
+  "title": "HospitalAI synthetic HIS snapshot v1",
+  "type": "object",
+  "required": ["schemaVersion", "syntheticNotice", "patients", "encounters", "drugCatalog"],
+  "properties": {
+    "schemaVersion": { "const": "his.snapshot.v1" },
+    "syntheticNotice": { "const": "SYNTHETIC_SIMULATION_DATA_ONLY" },
+    "patients": { "type": "array", "minItems": 5 },
+    "encounters": { "type": "array", "minItems": 5 },
+    "drugCatalog": { "type": "array", "minItems": 4 }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,16 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hospitalai}
+    username: ${SPRING_DATASOURCE_USERNAME:hospitalai}
+    password: ${SPRING_DATASOURCE_PASSWORD:hospitalai_dev_only}
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+ai:
+  service-base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}
+hospitalai:
+  dev-user: ${HOSPITALAI_DEV_USER:dr_chen}
+  dev-role: ${HOSPITALAI_DEV_ROLE:doctor}

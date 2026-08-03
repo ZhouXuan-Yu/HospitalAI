@@ -1,0 +1,35 @@
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/playwright-report/
+apps/web/test-results/
+
+# Java
+target/
+services/core-api/target/
+
+# Python
+.venv/
+.venv-ai/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local tools and generated indexes
+.tools/
+.codebase-memory/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log

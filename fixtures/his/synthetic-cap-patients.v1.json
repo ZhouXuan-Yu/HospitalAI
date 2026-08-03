@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "his.snapshot.v1",
+  "syntheticNotice": "SYNTHETIC_SIMULATION_DATA_ONLY",
+  "scenarios": [
+    "normal",
+    "confirmed_allergy_second_admission",
+    "severe_adr",
+    "cross_department_duplicate_or_conflict",
+    "critical_lab_missing",
+    "old_version_update",
+    "interface_failure"
+  ],
+  "patients": [
+    { "hisPatientId": "HIS-P001", "internalPatientId": "P001", "displayName": "合成患者A", "sex": "F", "age": 66 },
+    { "hisPatientId": "HIS-P002", "internalPatientId": "P002", "displayName": "合成患者B", "sex": "M", "age": 72 },
+    { "hisPatientId": "HIS-P003", "internalPatientId": "P003", "displayName": "合成患者C", "sex": "F", "age": 59 },
+    { "hisPatientId": "HIS-P004", "internalPatientId": "P004", "displayName": "合成患者D", "sex": "M", "age": 68 },
+    { "hisPatientId": "HIS-P005", "internalPatientId": "P005", "displayName": "合成患者E", "sex": "F", "age": 81 }
+  ],
+  "encounters": [
+    { "encounterId": "E001", "patientId": "P001", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "scenario": "normal", "dataVersion": 3 },
+    { "encounterId": "E002-2", "patientId": "P002", "department": "呼吸内科", "diagnosis": "社区获得性肺炎，第二次入院", "scenario": "confirmed_allergy_second_admission", "dataVersion": 4 },
+    { "encounterId": "E003", "patientId": "P003", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "scenario": "severe_adr", "dataVersion": 2 },
+    { "encounterId": "E004", "patientId": "P004", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "scenario": "cross_department_duplicate_or_conflict", "dataVersion": 5 },
+    { "encounterId": "E005", "patientId": "P005", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "scenario": "critical_lab_missing", "dataVersion": 1 }
+  ],
+  "drugCatalog": [
+    { "drugCode": "D-AMOX", "name": "阿莫西林克拉维酸钾", "class": "青霉素类", "status": "active" },
+    { "drugCode": "D-CEF", "name": "头孢曲松", "class": "头孢菌素类", "status": "active" },
+    { "drugCode": "D-AZI", "name": "阿奇霉素", "class": "大环内酯类", "status": "active" },
+    { "drugCode": "D-LEV", "name": "左氧氟沙星", "class": "喹诺酮类", "status": "active" },
+    { "drugCode": "D-VAN", "name": "万古霉素", "class": "糖肽类", "status": "inactive" }
+  ]
+}

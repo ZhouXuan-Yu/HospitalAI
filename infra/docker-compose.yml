@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hospitalai}
+      POSTGRES_USER: ${POSTGRES_USER:-hospitalai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hospitalai_dev_only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hospitalai} -d ${POSTGRES_DB:-hospitalai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ai-service:
+    build:
+      context: ../services/ai-service
+    ports:
+      - "${AI_SERVICE_PORT:-8000}:8000"
+
+  core-api:
+    image: maven:3.9.9-eclipse-temurin-21
+    working_dir: /workspace
+    command: mvn spring-boot:run
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hospitalai}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-hospitalai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-hospitalai_dev_only}
+      AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8000}
+      HOSPITALAI_DEV_ROLE: ${HOSPITALAI_DEV_ROLE:-doctor}
+      HOSPITALAI_DEV_USER: ${HOSPITALAI_DEV_USER:-dr_chen}
+    ports:
+      - "${CORE_API_PORT:-8080}:8080"
+    volumes:
+      - ../services/core-api:/workspace
+      - maven-cache:/root/.m2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+
+  web:
+    image: node:24-bookworm
+    working_dir: /workspace
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_CORE_API_BASE: ${VITE_CORE_API_BASE:-http://localhost:8080}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../apps/web:/workspace
+      - web-node-modules:/workspace/node_modules
+    depends_on:
+      - core-api
+
+volumes:
+  maven-cache:
+  web-node-modules:

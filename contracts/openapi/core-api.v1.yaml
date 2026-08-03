@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: HospitalAI Core API
+  version: 1.0.0
+paths:
+  /api/workbench/{encounterId}:
+    get:
+      summary: Build patient context, deterministic safety rules, controlled evidence, and candidates.
+      parameters:
+        - name: encounterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Workbench payload
+  /api/recommendations/{recommendationId}/decision:
+    post:
+      summary: Adopt, modify, or reject a recommendation and create a simulated HIS draft when allowed.
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Persisted decision and draft status

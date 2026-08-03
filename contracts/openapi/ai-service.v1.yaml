@@ -1,0 +1,11 @@
+openapi: 3.0.3
+info:
+  title: HospitalAI AI Service
+  version: 1.0.0
+paths:
+  /v1/evidence/retrieve:
+    post:
+      summary: Retrieve approved or demonstration evidence snippets for a bounded recommendation request.
+      responses:
+        "200":
+          description: Evidence snippets and explanation draft
