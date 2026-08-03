@@ -15,6 +15,7 @@
           />
         </el-select>
         <el-button :icon="RefreshCw" size="small" @click="load">刷新快照</el-button>
+        <el-button :icon="ClipboardCheck" size="small" @click="store.loadOps()">刷新待办</el-button>
       </div>
     </header>
 
@@ -121,34 +122,96 @@
       </section>
 
       <aside class="panel right">
-        <section class="section">
-          <h2>阻断、提醒与缺失</h2>
-          <div class="quiet-list">
-            <div v-for="alert in store.payload.alerts" :key="alert.ruleId + alert.message" class="risk-row" :class="riskClass(alert.level)">
-              <div class="risk-title">
-                <span>{{ alert.ruleId }} · {{ alert.version }}</span>
-                <el-tag size="small" :type="tagType(alert.level)">{{ alert.level }}</el-tag>
+        <el-tabs v-model="rightTab" class="right-tabs">
+          <el-tab-pane label="风险证据" name="risk">
+            <section class="section">
+              <h2>阻断、提醒与缺失</h2>
+              <div class="quiet-list">
+                <div v-for="alert in store.payload.alerts" :key="alert.ruleId + alert.message" class="risk-row" :class="riskClass(alert.level)">
+                  <div class="risk-title">
+                    <span>{{ alert.ruleId }} · {{ alert.version }}</span>
+                    <el-tag size="small" :type="tagType(alert.level)">{{ alert.level }}</el-tag>
+                  </div>
+                  <div>{{ alert.message }}</div>
+                  <div class="meta">{{ alert.status }} · 命中事实 {{ alert.facts.join('、') }}</div>
+                </div>
               </div>
-              <div>{{ alert.message }}</div>
-              <div class="meta">{{ alert.status }} · 命中事实 {{ alert.facts.join('、') }}</div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        <section class="section">
-          <h2>证据定位</h2>
-          <div v-if="selectedCandidate?.evidence.length" class="quiet-list">
-            <div v-for="item in selectedCandidate.evidence" :key="item.evidenceId" class="fact-row">
-              <div class="fact-title">
-                <span>{{ item.title }}</span>
-                <el-tag size="small" type="warning">{{ item.status }}</el-tag>
+            <section class="section">
+              <h2>证据定位</h2>
+              <div v-if="selectedCandidate?.evidence.length" class="quiet-list">
+                <div v-for="item in selectedCandidate.evidence" :key="item.evidenceId" class="fact-row">
+                  <div class="fact-title">
+                    <span>{{ item.title }}</span>
+                    <el-tag size="small" type="warning">{{ item.status }}</el-tag>
+                  </div>
+                  <div>{{ item.text }}</div>
+                  <div class="meta">{{ item.version }} · {{ item.effectiveDate }} · {{ item.locator }} · score {{ item.score }}</div>
+                </div>
               </div>
-              <div>{{ item.text }}</div>
-              <div class="meta">{{ item.version }} · {{ item.effectiveDate }} · {{ item.locator }} · score {{ item.score }}</div>
-            </div>
-          </div>
-          <el-empty v-else description="证据不足或解释服务降级" />
-        </section>
+              <el-empty v-else description="证据不足或解释服务降级" />
+            </section>
+          </el-tab-pane>
+
+          <el-tab-pane label="待办" name="ops">
+            <section class="section">
+              <div class="section-head">
+                <h2>药师 ADR 审核</h2>
+                <el-button :icon="RefreshCw" circle size="small" @click="store.loadOps()" />
+              </div>
+              <div v-if="store.adrReviews.length" class="quiet-list">
+                <div v-for="adr in store.adrReviews" :key="adr.adrId" class="fact-row">
+                  <div class="fact-title">
+                    <span>{{ adr.drugName }}</span>
+                    <el-tag size="small" type="danger">{{ adr.severity }}</el-tag>
+                  </div>
+                  <div>{{ adr.patientId }} · {{ adr.drugCode }} · {{ adr.reviewStatus }}</div>
+                  <div class="meta">来源 {{ adr.sourceId }} · {{ adr.reviewedAt ? formatTime(adr.reviewedAt) : '待审核' }}</div>
+                  <div class="mini-actions">
+                    <el-button :icon="CheckCircle2" size="small" type="primary" @click="store.resolveAdr(adr.adrId, 'confirm')">确认</el-button>
+                    <el-button :icon="XCircle" size="small" plain @click="store.resolveAdr(adr.adrId, 'reject')">驳回</el-button>
+                  </div>
+                </div>
+              </div>
+              <el-empty v-else description="暂无待审 ADR" />
+            </section>
+
+            <section class="section">
+              <h2>知识审核</h2>
+              <div v-if="store.knowledgeSubmissions.length" class="quiet-list">
+                <div v-for="item in store.knowledgeSubmissions" :key="item.submissionId" class="fact-row">
+                  <div class="fact-title">
+                    <span>{{ item.title }}</span>
+                    <el-tag size="small" type="warning">{{ item.status }}</el-tag>
+                  </div>
+                  <div>{{ item.submissionType }} · {{ item.submittedBy }}</div>
+                  <div class="meta">{{ item.reportId }} · {{ formatTime(item.submittedAt) }}</div>
+                  <div class="mini-actions">
+                    <el-button :icon="CheckCircle2" size="small" type="primary" @click="store.reviewKnowledge(item.submissionId, 'approve')">通过</el-button>
+                    <el-button :icon="XCircle" size="small" plain @click="store.reviewKnowledge(item.submissionId, 'reject')">驳回</el-button>
+                  </div>
+                </div>
+              </div>
+              <el-empty v-else description="暂无待审知识" />
+            </section>
+
+            <section class="section">
+              <h2>科研产物</h2>
+              <el-input v-model="artifactUri" placeholder="local://research/... artifact URI" size="small" />
+              <div class="mini-actions">
+                <el-button :icon="FileSearch" size="small" @click="store.readArtifact(artifactUri)">读取</el-button>
+                <el-button :icon="PlayCircle" size="small" @click="store.processResearchTask()">处理统计任务</el-button>
+              </div>
+              <div v-if="store.artifact" class="artifact-preview">
+                <div class="meta">SHA-256 {{ store.artifact.sha256 }}</div>
+                <pre>{{ store.artifact.content }}</pre>
+              </div>
+            </section>
+
+            <el-alert v-if="store.opsResult" type="success" :title="store.opsResult" :closable="false" />
+          </el-tab-pane>
+        </el-tabs>
       </aside>
     </div>
   </main>
@@ -157,7 +220,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CheckCircle2, Pencil, RefreshCw, XCircle } from 'lucide-vue-next'
+import { CheckCircle2, ClipboardCheck, FileSearch, Pencil, PlayCircle, RefreshCw, XCircle } from 'lucide-vue-next'
 import { useWorkbenchStore } from '../stores/workbench'
 
 const route = useRoute()
@@ -165,6 +228,8 @@ const router = useRouter()
 const store = useWorkbenchStore()
 const encounterId = ref(String(route.params.encounterId || 'E001'))
 const reason = ref('已阅读风险与证据，仅生成 HIS 模拟处方草稿')
+const rightTab = ref('risk')
+const artifactUri = ref('')
 
 const selectedCandidate = computed(() => store.selectedCandidate)
 const selectedBlocked = computed(() => Boolean(selectedCandidate.value?.blocked))
@@ -207,5 +272,6 @@ onMounted(async () => {
     encounterId.value = store.worklist[0]?.encounterId ?? encounterId.value
   }
   await load()
+  await store.loadOps()
 })
 </script>

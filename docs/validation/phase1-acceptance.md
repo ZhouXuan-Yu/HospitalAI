@@ -417,3 +417,37 @@ Remaining M4/M5 gaps:
 
 - Pharmacist UI, finer role authorization and formal knowledge citation controls remain pending.
 - M5 operational gates remain pending.
+
+## 2026-08-03 Workbench Ops Panel Validation
+
+Commands:
+
+```powershell
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+```
+
+Results:
+
+- Vue store: 2 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+- Java: 18 passed, 0 failed.
+- Contract validation: passed.
+- Python: 5 passed, 0 failed.
+
+New evidence:
+
+- Doctor workbench right panel now has tabs for risk/evidence and operational pending work.
+- `useWorkbenchStore.loadOps()` calls real ADR and knowledge queue APIs.
+- ADR pending items can be confirmed or rejected from the workbench right panel and refresh the current patient workbench after resolution.
+- Knowledge submissions can be approved or rejected from the right panel.
+- Research artifact URI can be read through `GET /api/research/artifacts`, and the panel shows SHA-256 plus content preview.
+- Research analysis worker can be triggered from the right panel through `POST /api/research/analysis-tasks/process-next`.
+
+Remaining UI gaps:
+
+- This is an integrated operational panel, not a full independent pharmacist or research manager workbench.
+- Artifact access still lacks role-based download authorization and redaction controls.

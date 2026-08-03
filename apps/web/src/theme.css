@@ -71,6 +71,18 @@ button, input, textarea {
   font-size: 15px;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
 .quiet-list {
   display: grid;
   gap: 8px;
@@ -132,6 +144,36 @@ button, input, textarea {
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.mini-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.right-tabs .el-tabs__header {
+  margin-bottom: 10px;
+}
+
+.artifact-preview {
+  margin-top: 8px;
+  border: 1px solid #d7e3e7;
+  border-radius: 6px;
+  background: #f6fafb;
+  padding: 8px;
+}
+
+.artifact-preview pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .stage-toolbar .el-tag {

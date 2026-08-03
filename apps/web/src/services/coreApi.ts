@@ -94,6 +94,47 @@ export interface WorklistItem {
   sourcePatientId: string
 }
 
+export interface AdverseDrugReactionSummary {
+  adrId: string
+  patientId: string
+  drugCode: string
+  drugName: string
+  severity: string
+  reviewStatus: string
+  sourceId: string
+  reviewedAt: string | null
+}
+
+export interface KnowledgeSubmissionSummary {
+  submissionId: string
+  reportId: string
+  status: string
+  submissionType: string
+  title: string
+  submittedBy: string
+  submittedAt: string
+  publishedAt: string | null
+}
+
+export interface ResearchAnalysisTaskSummary {
+  taskId: string
+  cohortId: string
+  status: string
+  scriptVersion: string
+  statisticPlan: string
+  attemptCount: number
+  nextAttemptAt: string
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ResearchArtifactContent {
+  artifactUri: string
+  sha256: string
+  content: string
+}
+
 export interface SnapshotImportResponse {
   eventId: string
   status: string
@@ -139,5 +180,56 @@ export async function submitDecision(recommendationId: string, body: {
     body: JSON.stringify(body)
   })
   if (!response.ok) throw new Error(`审核提交失败：${response.status}`)
+  return response.json()
+}
+
+export async function fetchAdrReviews(status = 'review_pending'): Promise<AdverseDrugReactionSummary[]> {
+  const response = await fetch(`/api/adr/reviews?status=${encodeURIComponent(status)}`)
+  if (!response.ok) throw new Error(`ADR审核队列加载失败：${response.status}`)
+  return response.json()
+}
+
+export async function resolveAdrReview(adrId: string, decision: 'confirm' | 'reject', note: string): Promise<AdverseDrugReactionSummary> {
+  const response = await fetch(`/api/adr/reviews/${adrId}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, note })
+  })
+  if (!response.ok) throw new Error(`ADR审核提交失败：${response.status}`)
+  return response.json()
+}
+
+export async function fetchKnowledgeSubmissions(status = 'review_pending'): Promise<KnowledgeSubmissionSummary[]> {
+  const response = await fetch(`/api/knowledge/submissions?status=${encodeURIComponent(status)}`)
+  if (!response.ok) throw new Error(`知识审核队列加载失败：${response.status}`)
+  return response.json()
+}
+
+export async function reviewKnowledgeSubmission(submissionId: string, reviewerRole: string, decision: 'approve' | 'reject', note: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`/api/knowledge/submissions/${submissionId}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reviewerRole, decision, note })
+  })
+  if (!response.ok) throw new Error(`知识审核提交失败：${response.status}`)
+  return response.json()
+}
+
+export async function processNextAnalysisTask(): Promise<Record<string, unknown>> {
+  const response = await fetch('/api/research/analysis-tasks/process-next', { method: 'POST' })
+  if (!response.ok) throw new Error(`科研统计任务处理失败：${response.status}`)
+  return response.json()
+}
+
+export async function fetchAnalysisTasks(cohortId: string, status = ''): Promise<ResearchAnalysisTaskSummary[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  const response = await fetch(`/api/research/cohorts/${cohortId}/analysis-tasks${query}`)
+  if (!response.ok) throw new Error(`科研统计任务加载失败：${response.status}`)
+  return response.json()
+}
+
+export async function fetchResearchArtifact(uri: string): Promise<ResearchArtifactContent> {
+  const response = await fetch(`/api/research/artifacts?uri=${encodeURIComponent(uri)}`)
+  if (!response.ok) throw new Error(`科研产物读取失败：${response.status}`)
   return response.json()
 }
