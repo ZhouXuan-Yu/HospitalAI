@@ -6,19 +6,21 @@
 ## 当前任务状态
 
 - 已完成：MVP 纵向切片、三栏工作台、最小规则、演示证据、医生审核、模拟草稿、基础 E2E。
-- 进行中：商业级需求补齐、真实数据链路开发基线、Git 同步。
-- 待启动：PostgreSQL/pgvector 集成化、真实适配器、权限审计、规则/证据/科研完整模块。
+- 已完成：商业级需求补齐、真实数据链路开发基线、Git 同步。
+- 进行中：M1 真实数据链路基座。
+- 待启动：规则/证据治理、药师复核、长期追踪、科研资产、上线级安全与运维门槛。
 
 ## 里程碑
 
 ### M1 真实数据链路基座
 
-1. 建立 `.gitignore`、迁移目录和 CI 基线。
-2. 引入 Flyway/Liquibase。
-3. 建立 HIS adapter OpenAPI 和 JSON Schema。
-4. 实现导入器，将模拟 JSON 写入正式表。
-5. 移除 UI 对固定病例列表的硬依赖，改为患者工作列表 API。
-6. PostgreSQL/pgvector 集成测试通过。
+1. 已完成：建立 `.gitignore`、`.gitattributes`、迁移目录和基础验证命令。
+2. 已完成：引入 Flyway，PostgreSQL 默认路径使用 `db/migration`，H2 演示 profile 保留 SQL 初始化。
+3. 已完成：建立 HIS adapter OpenAPI、Core API 导入契约和 HIS snapshot JSON Schema。
+4. 已完成：实现 `HisSnapshotImportService`，将版本化快照经 inbound event 写入正式表。
+5. 已完成：移除 UI 固定病例列表硬依赖，改为患者工作列表 API。
+6. 待完成：PostgreSQL/pgvector 集成测试通过，需要可用 Docker Desktop Linux engine 或数据库凭据。
+7. 待完成：CI 基线、OpenAPI/JSON Schema 自动校验、真实医院导出样例字段映射模板。
 
 ### M2 规则与证据治理
 

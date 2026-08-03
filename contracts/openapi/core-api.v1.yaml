@@ -3,6 +3,12 @@ info:
   title: HospitalAI Core API
   version: 1.0.0
 paths:
+  /api/worklist:
+    get:
+      summary: List active encounters available to the doctor workbench.
+      responses:
+        "200":
+          description: Encounter worklist from Core API database.
   /api/workbench/{encounterId}:
     get:
       summary: Build patient context, deterministic safety rules, controlled evidence, and candidates.
@@ -25,3 +31,20 @@ paths:
       responses:
         "200":
           description: Persisted decision and draft status
+  /api/integration/his/snapshots/import:
+    post:
+      summary: Import a versioned HIS snapshot into the unified medical model.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceSystem, sourceBatchId, payload]
+              properties:
+                sourceSystem: { type: string }
+                sourceBatchId: { type: string }
+                payload: { type: object }
+      responses:
+        "200":
+          description: Import event status and upsert counts.

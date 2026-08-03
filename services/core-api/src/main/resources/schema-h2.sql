@@ -9,6 +9,8 @@ DROP TABLE IF EXISTS medication_exposure;
 DROP TABLE IF EXISTS medication_order;
 DROP TABLE IF EXISTS lab_result;
 DROP TABLE IF EXISTS diagnosis;
+DROP TABLE IF EXISTS source_sync_cursor;
+DROP TABLE IF EXISTS inbound_event;
 DROP TABLE IF EXISTS source_identifier_mapping;
 DROP TABLE IF EXISTS department_participation;
 DROP TABLE IF EXISTS encounters;
@@ -18,6 +20,8 @@ CREATE TABLE patients (patient_id TEXT PRIMARY KEY, his_patient_id TEXT NOT NULL
 CREATE TABLE encounters (encounter_id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, department TEXT NOT NULL, diagnosis TEXT NOT NULL, scenario TEXT NOT NULL, data_version INT NOT NULL, admitted_at TIMESTAMP NOT NULL);
 CREATE TABLE department_participation (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, department TEXT NOT NULL, role TEXT NOT NULL, doctor_name TEXT NOT NULL, active BOOLEAN NOT NULL);
 CREATE TABLE source_identifier_mapping (internal_id TEXT NOT NULL, source_system TEXT NOT NULL, source_id TEXT NOT NULL, object_type TEXT NOT NULL, version INT NOT NULL);
+CREATE TABLE inbound_event (event_id TEXT PRIMARY KEY, source_system TEXT NOT NULL, source_batch_id TEXT NOT NULL, event_type TEXT NOT NULL, status TEXT NOT NULL, payload_version TEXT NOT NULL, payload_hash TEXT NOT NULL, error_message TEXT, received_at TIMESTAMP NOT NULL, applied_at TIMESTAMP, UNIQUE (source_system, source_batch_id, event_type));
+CREATE TABLE source_sync_cursor (source_system TEXT NOT NULL, stream_name TEXT NOT NULL, cursor_value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL, PRIMARY KEY (source_system, stream_name));
 CREATE TABLE diagnosis (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL, source_id TEXT NOT NULL, collected_at TIMESTAMP NOT NULL);
 CREATE TABLE lab_result (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL, lab_value TEXT, unit TEXT, missing_status TEXT NOT NULL, source_id TEXT NOT NULL, collected_at TIMESTAMP NOT NULL);
 CREATE TABLE medication_order (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, patient_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, pharmacology_class TEXT NOT NULL, department TEXT NOT NULL, status TEXT NOT NULL, source_id TEXT NOT NULL, updated_at TIMESTAMP NOT NULL);

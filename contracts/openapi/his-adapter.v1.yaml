@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: HospitalAI HIS Adapter API
+  version: 1.0.0
+paths:
+  /v1/his/patients/{hisPatientId}/snapshot:
+    get:
+      summary: Read a patient snapshot from a hospital adapter without exposing internal database details.
+      parameters:
+        - name: hisPatientId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Versioned HIS snapshot payload.
+  /v1/his/events:
+    get:
+      summary: Pull incremental HIS events after a sync cursor.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Event batch with next cursor.
+  /v1/his/prescription-drafts:
+    post:
+      summary: Create or return an idempotent prescription draft in HIS, never a formal order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotencyKey, encounterId, decisionId, items]
+              properties:
+                idempotencyKey: { type: string }
+                encounterId: { type: string }
+                decisionId: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [drugCode, regimenText]
+      responses:
+        "200":
+          description: Draft status from HIS adapter.
+  /v1/his/prescription-drafts/{draftId}/status:
+    get:
+      summary: Read final draft status callback state from HIS.
+      parameters:
+        - name: draftId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Draft status; formal order confirmation remains in HIS.

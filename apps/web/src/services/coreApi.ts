@@ -80,6 +80,37 @@ export interface WorkbenchPayload {
   aiStatus: string
 }
 
+export interface WorklistItem {
+  encounterId: string
+  patientId: string
+  displayName: string
+  sex: string
+  age: number
+  department: string
+  diagnosis: string
+  dataVersion: number
+  scenario: string
+  admittedAt: string
+  sourcePatientId: string
+}
+
+export interface SnapshotImportResponse {
+  eventId: string
+  status: string
+  schemaVersion: string
+  patientsUpserted: number
+  encountersUpserted: number
+  catalogItemsUpserted: number
+  mappingsUpserted: number
+  warnings: string[]
+}
+
+export async function fetchWorklist(): Promise<WorklistItem[]> {
+  const response = await fetch('/api/worklist')
+  if (!response.ok) throw new Error(`患者工作列表加载失败：${response.status}`)
+  return response.json()
+}
+
 export async function fetchWorkbench(encounterId: string): Promise<WorkbenchPayload> {
   const response = await fetch(`/api/workbench/${encounterId}`)
   if (!response.ok) throw new Error(`工作台加载失败：${response.status}`)

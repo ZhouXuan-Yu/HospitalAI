@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS encounters (
 
 CREATE TABLE IF NOT EXISTS department_participation (
   id TEXT PRIMARY KEY,
-  encounter_id TEXT NOT NULL,
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   department TEXT NOT NULL,
   role TEXT NOT NULL,
   doctor_name TEXT NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS source_sync_cursor (
 
 CREATE TABLE IF NOT EXISTS diagnosis (
   id TEXT PRIMARY KEY,
-  encounter_id TEXT NOT NULL,
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   name TEXT NOT NULL,
   status TEXT NOT NULL,
   source_id TEXT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS diagnosis (
 
 CREATE TABLE IF NOT EXISTS lab_result (
   id TEXT PRIMARY KEY,
-  encounter_id TEXT NOT NULL,
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   code TEXT NOT NULL,
   name TEXT NOT NULL,
   lab_value TEXT,
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS lab_result (
 
 CREATE TABLE IF NOT EXISTS medication_order (
   id TEXT PRIMARY KEY,
-  encounter_id TEXT NOT NULL,
-  patient_id TEXT NOT NULL,
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
+  patient_id TEXT NOT NULL REFERENCES patients(patient_id),
   drug_code TEXT NOT NULL,
   drug_name TEXT NOT NULL,
   pharmacology_class TEXT NOT NULL,
@@ -92,8 +92,8 @@ CREATE TABLE IF NOT EXISTS medication_order (
 
 CREATE TABLE IF NOT EXISTS medication_exposure (
   id TEXT PRIMARY KEY,
-  patient_id TEXT NOT NULL,
-  encounter_id TEXT NOT NULL,
+  patient_id TEXT NOT NULL REFERENCES patients(patient_id),
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   drug_code TEXT NOT NULL,
   drug_name TEXT NOT NULL,
   started_at TIMESTAMPTZ NOT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS medication_exposure (
 
 CREATE TABLE IF NOT EXISTS allergy_event (
   id TEXT PRIMARY KEY,
-  patient_id TEXT NOT NULL,
+  patient_id TEXT NOT NULL REFERENCES patients(patient_id),
   drug_code TEXT NOT NULL,
   drug_name TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS allergy_event (
 
 CREATE TABLE IF NOT EXISTS adverse_drug_reaction (
   id TEXT PRIMARY KEY,
-  patient_id TEXT NOT NULL,
+  patient_id TEXT NOT NULL REFERENCES patients(patient_id),
   drug_code TEXT NOT NULL,
   drug_name TEXT NOT NULL,
   severity TEXT NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS evidence_document (
 CREATE TABLE IF NOT EXISTS recommendation_decision (
   decision_id TEXT PRIMARY KEY,
   recommendation_id TEXT NOT NULL,
-  encounter_id TEXT NOT NULL,
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   candidate_id TEXT NOT NULL,
   action TEXT NOT NULL,
   original_version TEXT NOT NULL,
@@ -155,10 +155,10 @@ CREATE TABLE IF NOT EXISTS recommendation_decision (
 
 CREATE TABLE IF NOT EXISTS prescription_draft (
   draft_id TEXT PRIMARY KEY,
-  decision_id TEXT NOT NULL,
-  encounter_id TEXT NOT NULL,
+  decision_id TEXT NOT NULL REFERENCES recommendation_decision(decision_id),
+  encounter_id TEXT NOT NULL REFERENCES encounters(encounter_id),
   status TEXT NOT NULL,
-  idempotency_key TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL
 );
 

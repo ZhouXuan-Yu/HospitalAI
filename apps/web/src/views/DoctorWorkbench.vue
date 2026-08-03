@@ -7,11 +7,12 @@
       </div>
       <div class="toolbar">
         <el-select v-model="encounterId" size="small" style="width: 260px" @change="load">
-          <el-option label="普通病例 E001" value="E001" />
-          <el-option label="二次入院过敏继承 E002-2" value="E002-2" />
-          <el-option label="严重不良反应 E003" value="E003" />
-          <el-option label="跨科室用药 E004" value="E004" />
-          <el-option label="关键检验缺失 E005" value="E005" />
+          <el-option
+            v-for="item in store.worklist"
+            :key="item.encounterId"
+            :label="`${item.displayName} · ${item.department} · ${item.encounterId}`"
+            :value="item.encounterId"
+          />
         </el-select>
         <el-button :icon="RefreshCw" size="small" @click="load">刷新快照</el-button>
       </div>
@@ -200,5 +201,11 @@ watch(() => store.selectedCandidateId, () => {
   }
 })
 
-onMounted(load)
+onMounted(async () => {
+  await store.loadWorklist()
+  if (!store.worklist.some(item => item.encounterId === encounterId.value)) {
+    encounterId.value = store.worklist[0]?.encounterId ?? encounterId.value
+  }
+  await load()
+})
 </script>

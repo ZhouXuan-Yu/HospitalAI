@@ -29,6 +29,26 @@ public class WorkbenchRepository {
         (rs, row) -> new Encounter(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5), rs.getString(6)), encounterId);
   }
 
+  public List<WorklistItem> worklist() {
+    return jdbc.query("""
+        SELECT e.encounter_id, p.patient_id, p.display_name, p.sex, p.age, e.department, e.diagnosis,
+               e.data_version, e.scenario, e.admitted_at, p.his_patient_id
+        FROM encounters e JOIN patients p ON p.patient_id = e.patient_id
+        ORDER BY e.admitted_at DESC, e.encounter_id
+        """, (rs, row) -> new WorklistItem(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getInt(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getInt(8),
+        rs.getString(9),
+        rs.getTimestamp(10).toInstant(),
+        rs.getString(11)));
+  }
+
   public List<Fact> facts(String encounterId, String patientId) {
     var rows = new java.util.ArrayList<Fact>();
     rows.addAll(jdbc.query("SELECT name, status, source_id, collected_at FROM diagnosis WHERE encounter_id = ?",
@@ -83,13 +103,113 @@ public class WorkbenchRepository {
         "AUD-" + UUID.randomUUID(), actor, action, objectId, detail, Instant.now());
   }
 
+  public boolean inboundEventExists(String sourceSystem, String sourceBatchId, String eventType) {
+    Integer count = jdbc.queryForObject("""
+        SELECT COUNT(*) FROM inbound_event
+        WHERE source_system = ? AND source_batch_id = ? AND event_type = ?
+        """, Integer.class, sourceSystem, sourceBatchId, eventType);
+    return count != null && count > 0;
+  }
+
+  public void insertInboundEvent(String eventId, String sourceSystem, String sourceBatchId, String eventType, String status, String payloadVersion, String payloadHash, String errorMessage) {
+    jdbc.update("""
+        INSERT INTO inbound_event(event_id, source_system, source_batch_id, event_type, status, payload_version, payload_hash, error_message, received_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, eventId, sourceSystem, sourceBatchId, eventType, status, payloadVersion, payloadHash, errorMessage, Instant.now());
+  }
+
+  public void updateInboundEvent(String eventId, String status, String errorMessage) {
+    jdbc.update("UPDATE inbound_event SET status = ?, error_message = ?, applied_at = ? WHERE event_id = ?",
+        status, errorMessage, Instant.now(), eventId);
+  }
+
+  public void upsertPatient(String patientId, String hisPatientId, String displayName, String sex, int age) {
+    if (exists("patients", "patient_id", patientId)) {
+      jdbc.update("UPDATE patients SET his_patient_id = ?, display_name = ?, sex = ?, age = ? WHERE patient_id = ?",
+          hisPatientId, displayName, sex, age, patientId);
+    } else {
+      jdbc.update("INSERT INTO patients(patient_id, his_patient_id, display_name, sex, age) VALUES (?, ?, ?, ?, ?)",
+          patientId, hisPatientId, displayName, sex, age);
+    }
+  }
+
+  public boolean upsertEncounterIfCurrent(String encounterId, String patientId, String department, String diagnosis, String scenario, int dataVersion) {
+    Integer existingVersion = jdbc.query("SELECT data_version FROM encounters WHERE encounter_id = ?",
+        rs -> rs.next() ? rs.getInt(1) : null, encounterId);
+    if (existingVersion != null && existingVersion > dataVersion) {
+      return false;
+    }
+    if (existingVersion != null) {
+      jdbc.update("""
+          UPDATE encounters
+          SET patient_id = ?, department = ?, diagnosis = ?, scenario = ?, data_version = ?
+          WHERE encounter_id = ?
+          """, patientId, department, diagnosis, scenario, dataVersion, encounterId);
+    } else {
+      jdbc.update("""
+          INSERT INTO encounters(encounter_id, patient_id, department, diagnosis, scenario, data_version, admitted_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          """, encounterId, patientId, department, diagnosis, scenario, dataVersion, Instant.now());
+    }
+    return true;
+  }
+
+  public void upsertDrugCatalog(String drugCode, String name, String pharmacologyClass, String status) {
+    if (exists("drug_catalog", "drug_code", drugCode)) {
+      jdbc.update("UPDATE drug_catalog SET name = ?, pharmacology_class = ?, status = ? WHERE drug_code = ?",
+          name, pharmacologyClass, status, drugCode);
+    } else {
+      jdbc.update("INSERT INTO drug_catalog(drug_code, name, pharmacology_class, status) VALUES (?, ?, ?, ?)",
+          drugCode, name, pharmacologyClass, status);
+    }
+  }
+
+  public void upsertMapping(String internalId, String sourceSystem, String sourceId, String objectType, int version) {
+    Integer count = jdbc.queryForObject("""
+        SELECT COUNT(*) FROM source_identifier_mapping
+        WHERE internal_id = ? AND source_system = ? AND object_type = ?
+        """, Integer.class, internalId, sourceSystem, objectType);
+    if (count != null && count > 0) {
+      jdbc.update("""
+          UPDATE source_identifier_mapping
+          SET source_id = ?, version = ?
+          WHERE internal_id = ? AND source_system = ? AND object_type = ?
+          """, sourceId, version, internalId, sourceSystem, objectType);
+    } else {
+      jdbc.update("""
+          INSERT INTO source_identifier_mapping(internal_id, source_system, source_id, object_type, version)
+          VALUES (?, ?, ?, ?, ?)
+          """, internalId, sourceSystem, sourceId, objectType, version);
+    }
+  }
+
+  public void upsertCursor(String sourceSystem, String streamName, String cursorValue) {
+    Integer count = jdbc.queryForObject("""
+        SELECT COUNT(*) FROM source_sync_cursor
+        WHERE source_system = ? AND stream_name = ?
+        """, Integer.class, sourceSystem, streamName);
+    if (count != null && count > 0) {
+      jdbc.update("UPDATE source_sync_cursor SET cursor_value = ?, updated_at = ? WHERE source_system = ? AND stream_name = ?",
+          cursorValue, Instant.now(), sourceSystem, streamName);
+    } else {
+      jdbc.update("INSERT INTO source_sync_cursor(source_system, stream_name, cursor_value, updated_at) VALUES (?, ?, ?, ?)",
+          sourceSystem, streamName, cursorValue, Instant.now());
+    }
+  }
+
+  private boolean exists(String table, String idColumn, String id) {
+    Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE " + idColumn + " = ?", Integer.class, id);
+    return count != null && count > 0;
+  }
+
   public Map<String, Object> latestPersistenceSnapshot() {
     return Map.of(
         "decisionCount", jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_decision", Integer.class),
         "draftCount", jdbc.queryForObject("SELECT COUNT(*) FROM prescription_draft", Integer.class),
         "auditCount", jdbc.queryForObject("SELECT COUNT(*) FROM audit_log", Integer.class),
         "latestDrafts", jdbc.queryForList("SELECT draft_id, status, encounter_id FROM prescription_draft ORDER BY created_at DESC LIMIT 5"),
-        "latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5")
+        "latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"),
+        "latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5")
     );
   }
 }

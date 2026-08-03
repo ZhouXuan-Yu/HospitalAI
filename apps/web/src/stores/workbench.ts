@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { fetchWorkbench, submitDecision, type CandidatePlan, type WorkbenchPayload } from '../services/coreApi'
+import { fetchWorkbench, fetchWorklist, submitDecision, type CandidatePlan, type WorkbenchPayload, type WorklistItem } from '../services/coreApi'
 
 export const useWorkbenchStore = defineStore('workbench', {
   state: () => ({
     payload: null as WorkbenchPayload | null,
+    worklist: [] as WorklistItem[],
     loading: false,
     error: '',
     selectedCandidateId: '',
@@ -19,6 +20,14 @@ export const useWorkbenchStore = defineStore('workbench', {
     }
   },
   actions: {
+    async loadWorklist() {
+      this.error = ''
+      try {
+        this.worklist = await fetchWorklist()
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : '未知错误'
+      }
+    },
     async load(encounterId: string) {
       this.loading = true
       this.error = ''

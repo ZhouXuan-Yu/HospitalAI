@@ -62,3 +62,34 @@ Safety cases:
 - `docs/validation/workbench-1920.png`
 
 Both screenshots show the three-column doctor workbench without visible overlap at the target desktop widths.
+
+## 2026-08-03 M1 Incremental Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 3 passed, 0 failed.
+- Python: 2 passed, 0 failed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `HisSnapshotImportTest` imports a versioned HIS snapshot through `POST /api/integration/his/snapshots/import`.
+- The imported patient and encounter are then read through `GET /api/worklist`.
+- `GET /api/debug/persistence` shows the applied inbound event status.
+- The doctor workbench select now reads encounter options from `/api/worklist` instead of a fixed front-end list.
+
+Remaining M1 gaps:
+
+- PostgreSQL/pgvector integration validation is still pending because this local session needs Docker Desktop Linux engine or PostgreSQL credentials.
+- OpenAPI and JSON Schema files exist, but automated contract validation has not yet been added to CI.
+- Online HIS connectors remain specified by contract; field mapping against a real hospital export sample is still pending.

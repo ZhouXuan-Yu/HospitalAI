@@ -1,15 +1,37 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hospitalai.local/contracts/his-snapshot.v1.json",
-  "title": "HospitalAI synthetic HIS snapshot v1",
+  "title": "HospitalAI HIS snapshot v1",
   "type": "object",
-  "required": ["schemaVersion", "syntheticNotice", "patients", "encounters", "drugCatalog"],
+  "required": ["schemaVersion", "patients", "encounters", "drugCatalog"],
   "properties": {
     "schemaVersion": { "const": "his.snapshot.v1" },
+    "dataClassification": {
+      "type": "string",
+      "enum": ["real_hospital_export", "deidentified_hospital_export", "synthetic_validation"]
+    },
     "syntheticNotice": { "const": "SYNTHETIC_SIMULATION_DATA_ONLY" },
-    "patients": { "type": "array", "minItems": 5 },
-    "encounters": { "type": "array", "minItems": 5 },
-    "drugCatalog": { "type": "array", "minItems": 4 }
+    "patients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hisPatientId", "internalPatientId", "displayName", "sex", "age"]
+      }
+    },
+    "encounters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["encounterId", "patientId", "department", "diagnosis", "scenario", "dataVersion"]
+      }
+    },
+    "drugCatalog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["drugCode", "name", "class", "status"]
+      }
+    }
   },
   "additionalProperties": true
 }
