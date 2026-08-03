@@ -1,0 +1,13 @@
+{
+  "name": "hospitalai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:contracts": "node scripts/validate-contracts.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.17.1",
+    "yaml": "2.5.1"
+  }
+}

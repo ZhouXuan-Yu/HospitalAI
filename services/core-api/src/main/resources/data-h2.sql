@@ -46,3 +46,15 @@ INSERT INTO medication_exposure(id, patient_id, encounter_id, drug_code, drug_na
 INSERT INTO evidence_document(evidence_id, title, status, version, effective_date, scope, locator, text) VALUES
 ('EV-CAP-001','CAP演示证据集：住院成人初始抗感染路径','demo_unpublished','2026.08-demo','2026-08-03','呼吸内科/社区获得性肺炎','第2页-初始方案','演示证据：候选药物必须来自院内目录；无明确过敏或严重不良反应时，可比较β内酰胺类、头孢菌素类、大环内酯类和喹诺酮类方案。'),
 ('EV-CAP-002','CAP演示证据集：监测要求','demo_unpublished','2026.08-demo','2026-08-03','呼吸内科/社区获得性肺炎','第4页-监测项目','演示证据：推荐前需检查过敏史、当前有效用药和关键检验；关键检验缺失时不得按正常值处理。');
+
+INSERT INTO clinical_rule(rule_id, version, name, status, severity, basis, deterministic_handler, published_at) VALUES
+('HR-ALG-001','2026.08','已确认药物过敏继承阻断','published-demo','block','项目受控演示规则：确认过敏在后续就诊中继承并阻断对应候选药物。','confirmedAllergyBlock','2026-08-03T00:00:00Z'),
+('HR-ADR-001','2026.08','严重不良反应强提醒','published-demo','strong','项目受控演示规则：医院审核的严重 ADR 触发强提醒。','severeAdrAlert','2026-08-03T00:00:00Z'),
+('HR-XDEPT-001','2026.08','跨科室当前有效用药复核','published-demo','strong','项目受控演示规则：跨科室当前有效药物或类别相近时提醒复核。','crossDepartmentMedicationAlert','2026-08-03T00:00:00Z'),
+('HR-MISS-001','2026.08','关键检验缺失提示','published-demo','info','项目受控演示规则：关键检验缺失不得按正常值处理。','missingCriticalLabAlert','2026-08-03T00:00:00Z');
+
+INSERT INTO clinical_rule_case(case_id, rule_id, rule_version, title, input_ref, expected_result, status) VALUES
+('RC-ALG-001','HR-ALG-001','2026.08','二次入院继承青霉素过敏','E002-2','blocking=true; candidate C-AMOX blocked','active'),
+('RC-ADR-001','HR-ADR-001','2026.08','严重 ADR 强提醒','E003','blocking=false; level=strong','active'),
+('RC-XDEPT-001','HR-XDEPT-001','2026.08','跨科室阿奇霉素用药提醒','E004','blocking=false; level=strong','active'),
+('RC-MISS-001','HR-MISS-001','2026.08','关键检验缺失提示','E005','blocking=false; level=info','active');

@@ -1,6 +1,9 @@
 DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS prescription_draft;
 DROP TABLE IF EXISTS recommendation_decision;
+DROP TABLE IF EXISTS rule_execution;
+DROP TABLE IF EXISTS clinical_rule_case;
+DROP TABLE IF EXISTS clinical_rule;
 DROP TABLE IF EXISTS evidence_document;
 DROP TABLE IF EXISTS drug_catalog;
 DROP TABLE IF EXISTS adverse_drug_reaction;
@@ -30,6 +33,9 @@ CREATE TABLE allergy_event (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, drug_
 CREATE TABLE adverse_drug_reaction (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, severity TEXT NOT NULL, review_status TEXT NOT NULL, source_id TEXT NOT NULL, reviewed_at TIMESTAMP);
 CREATE TABLE drug_catalog (drug_code TEXT PRIMARY KEY, name TEXT NOT NULL, pharmacology_class TEXT NOT NULL, status TEXT NOT NULL);
 CREATE TABLE evidence_document (evidence_id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT NOT NULL, version TEXT NOT NULL, effective_date DATE NOT NULL, scope TEXT NOT NULL, locator TEXT NOT NULL, text TEXT NOT NULL);
+CREATE TABLE clinical_rule (rule_id TEXT NOT NULL, version TEXT NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL, severity TEXT NOT NULL, basis TEXT NOT NULL, deterministic_handler TEXT NOT NULL, published_at TIMESTAMP, PRIMARY KEY (rule_id, version));
+CREATE TABLE clinical_rule_case (case_id TEXT PRIMARY KEY, rule_id TEXT NOT NULL, rule_version TEXT NOT NULL, title TEXT NOT NULL, input_ref TEXT NOT NULL, expected_result TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE rule_execution (execution_id TEXT PRIMARY KEY, recommendation_id TEXT NOT NULL, encounter_id TEXT NOT NULL, rule_id TEXT NOT NULL, rule_version TEXT NOT NULL, result_level TEXT NOT NULL, blocked BOOLEAN NOT NULL, matched_facts TEXT NOT NULL, message TEXT NOT NULL, executed_at TIMESTAMP NOT NULL);
 CREATE TABLE recommendation_decision (decision_id TEXT PRIMARY KEY, recommendation_id TEXT NOT NULL, encounter_id TEXT NOT NULL, candidate_id TEXT NOT NULL, action TEXT NOT NULL, original_version TEXT NOT NULL, modified_regimen TEXT, reason TEXT NOT NULL, actor TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
 CREATE TABLE prescription_draft (draft_id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, encounter_id TEXT NOT NULL, status TEXT NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
 CREATE TABLE audit_log (audit_id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, object_id TEXT NOT NULL, detail TEXT NOT NULL, created_at TIMESTAMP NOT NULL);

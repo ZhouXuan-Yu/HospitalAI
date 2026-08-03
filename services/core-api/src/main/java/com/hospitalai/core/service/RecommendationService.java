@@ -40,6 +40,8 @@ public class RecommendationService {
     stages.add(stage("patient_context", "complete", started, "合成 HIS 快照已汇总，原始事实未被 AI 覆盖"));
 
     var alerts = evaluateRules(encounter, patient);
+    var recommendationId = "REC-" + encounterId + "-v" + encounter.dataVersion();
+    alerts.forEach(alert -> repo.insertRuleExecution(recommendationId, encounterId, alert));
     stages.add(stage("deterministic_rules", "complete", started, "Java 硬规则已执行，阻断风险不可绕过"));
 
     var evidence = retrieveEvidence(encounter, patient, facts, stages, started);
@@ -47,7 +49,6 @@ public class RecommendationService {
     var candidates = buildCandidates(patient.patientId(), alerts, evidence, missing);
     stages.add(stage("candidate_ranking", "complete", started, "候选仅来自模拟院内药品目录，演示规则不含自由剂量生成"));
 
-    var recommendationId = "REC-" + encounterId + "-v" + encounter.dataVersion();
     repo.audit(actor, "WORKBENCH_OPENED", encounterId, "opened recommendation " + recommendationId);
     return new WorkbenchPayload(patient, encounter, facts, alerts, candidates, missing, stages, recommendationId, evidence.isEmpty() ? "degraded" : "deterministic-demo");
   }
@@ -77,24 +78,28 @@ public class RecommendationService {
 
   List<SafetyAlert> evaluateRules(Encounter encounter, PatientProfile patient) {
     var alerts = new ArrayList<SafetyAlert>();
+    var allergyRule = repo.rule("HR-ALG-001");
     for (var allergy : repo.confirmedAllergies(patient.patientId())) {
-      alerts.add(new SafetyAlert("HR-ALG-001", "2026.08", "published-demo", "block",
+      alerts.add(new SafetyAlert(allergyRule.ruleId(), allergyRule.version(), allergyRule.status(), allergyRule.severity(),
           "已确认药物过敏：后续就诊必须继承并阻断 " + allergy.get("drug_name"),
           List.of(String.valueOf(allergy.get("source_id"))), true));
     }
+    var adrRule = repo.rule("HR-ADR-001");
     for (var adr : repo.severeAdrs(patient.patientId())) {
-      alerts.add(new SafetyAlert("HR-ADR-001", "2026.08", "published-demo", "strong",
+      alerts.add(new SafetyAlert(adrRule.ruleId(), adrRule.version(), adrRule.status(), adrRule.severity(),
           "医院演示规则：严重不良反应需强提醒 " + adr.get("drug_name"),
           List.of(String.valueOf(adr.get("source_id"))), false));
     }
+    var crossDepartmentRule = repo.rule("HR-XDEPT-001");
     var orders = repo.activeOrders(patient.patientId());
     for (var order : orders) {
-      alerts.add(new SafetyAlert("HR-XDEPT-001", "2026.08", "published-demo", "strong",
+      alerts.add(new SafetyAlert(crossDepartmentRule.ruleId(), crossDepartmentRule.version(), crossDepartmentRule.status(), crossDepartmentRule.severity(),
           "跨科室当前有效用药需复核：" + order.get("department") + " 已有 " + order.get("drug_name"),
           List.of(String.valueOf(order.get("source_id"))), false));
     }
+    var missingRule = repo.rule("HR-MISS-001");
     for (var lab : repo.missingLabs(encounter.encounterId())) {
-      alerts.add(new SafetyAlert("HR-MISS-001", "2026.08", "published-demo", "info",
+      alerts.add(new SafetyAlert(missingRule.ruleId(), missingRule.version(), missingRule.status(), missingRule.severity(),
           "关键检验缺失：" + lab.get("name") + "，不得按正常值处理",
           List.of(String.valueOf(lab.get("source_id"))), false));
     }

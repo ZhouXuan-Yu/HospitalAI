@@ -6,11 +6,15 @@ import com.hospitalai.core.model.Dto.SnapshotImportRequest;
 import com.hospitalai.core.model.Dto.SnapshotImportResponse;
 import com.hospitalai.core.model.Dto.WorkbenchPayload;
 import com.hospitalai.core.model.Dto.WorklistItem;
+import com.hospitalai.core.model.Dto.RuleGovernancePayload;
 import com.hospitalai.core.repository.WorkbenchRepository;
 import com.hospitalai.core.service.HisSnapshotImportService;
 import com.hospitalai.core.service.RecommendationService;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -32,6 +36,11 @@ public class WorkbenchController {
     return repository.worklist();
   }
 
+  @GetMapping("/rules")
+  public RuleGovernancePayload rules() {
+    return new RuleGovernancePayload(repository.clinicalRules(), repository.clinicalRuleCases());
+  }
+
   @GetMapping("/workbench/{encounterId}")
   public WorkbenchPayload workbench(@PathVariable String encounterId) {
     return service.buildWorkbench(encounterId);
@@ -50,5 +59,11 @@ public class WorkbenchController {
   @GetMapping("/debug/persistence")
   public Map<String, Object> persistence() {
     return repository.latestPersistenceSnapshot();
+  }
+
+  @ExceptionHandler(IllegalArgumentException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public Map<String, Object> badRequest(IllegalArgumentException ex) {
+    return Map.of("error", ex.getMessage());
   }
 }

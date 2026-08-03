@@ -20,12 +20,13 @@
 4. 已完成：实现 `HisSnapshotImportService`，将版本化快照经 inbound event 写入正式表。
 5. 已完成：移除 UI 固定病例列表硬依赖，改为患者工作列表 API。
 6. 待完成：PostgreSQL/pgvector 集成测试通过，需要可用 Docker Desktop Linux engine 或数据库凭据。
-7. 待完成：CI 基线、OpenAPI/JSON Schema 自动校验、真实医院导出样例字段映射模板。
+7. 已完成：OpenAPI/JSON Schema 自动校验脚本 `npm run test:contracts`。
+8. 待完成：CI 基线、真实医院导出样例字段映射模板。
 
 ### M2 规则与证据治理
 
-1. 规则版本表、规则病例表、执行记录表。
-2. 规则审核发布流程。
+1. 已完成：规则版本表、规则病例表、执行记录表。
+2. 部分完成：发布规则可由 `/api/rules` 查看，推荐打开时记录规则执行；完整草稿、审核、发布、撤回操作待补。
 3. 剂量计算器接口和首批演示规则。
 4. 文件与 EvidenceDocument/DocumentBlock/EvidenceChunk。
 5. 证据审核发布和撤回。

@@ -84,6 +84,66 @@ public class WorkbenchRepository {
     return jdbc.queryForList("SELECT code, name, source_id FROM lab_result WHERE encounter_id = ? AND missing_status <> 'present'", encounterId);
   }
 
+  public List<ClinicalRuleSummary> clinicalRules() {
+    return jdbc.query("""
+        SELECT rule_id, version, name, status, severity, basis, deterministic_handler, published_at
+        FROM clinical_rule
+        ORDER BY rule_id, version
+        """, (rs, row) -> new ClinicalRuleSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant()));
+  }
+
+  public List<ClinicalRuleCaseSummary> clinicalRuleCases() {
+    return jdbc.query("""
+        SELECT case_id, rule_id, rule_version, title, input_ref, expected_result, status
+        FROM clinical_rule_case
+        ORDER BY case_id
+        """, (rs, row) -> new ClinicalRuleCaseSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7)));
+  }
+
+  public ClinicalRuleSummary rule(String ruleId) {
+    var rules = jdbc.query("""
+        SELECT rule_id, version, name, status, severity, basis, deterministic_handler, published_at
+        FROM clinical_rule
+        WHERE rule_id = ? AND status LIKE 'published%'
+        ORDER BY published_at DESC
+        LIMIT 1
+        """, (rs, row) -> new ClinicalRuleSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant()), ruleId);
+    if (rules.isEmpty()) {
+      throw new IllegalStateException("published rule not found: " + ruleId);
+    }
+    return rules.get(0);
+  }
+
+  public void insertRuleExecution(String recommendationId, String encounterId, SafetyAlert alert) {
+    jdbc.update("""
+        INSERT INTO rule_execution(execution_id, recommendation_id, encounter_id, rule_id, rule_version, result_level, blocked, matched_facts, message, executed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, "REX-" + UUID.randomUUID(), recommendationId, encounterId, alert.ruleId(), alert.version(), alert.level(), alert.blocking(), String.join(",", alert.facts()), alert.message(), Instant.now());
+  }
+
   public void insertDecision(String decisionId, String recommendationId, String encounterId, DecisionRequest request, String actor) {
     jdbc.update("""
         INSERT INTO recommendation_decision(decision_id, recommendation_id, encounter_id, candidate_id, action, original_version, modified_regimen, reason, actor, created_at)
@@ -209,7 +269,8 @@ public class WorkbenchRepository {
         "auditCount", jdbc.queryForObject("SELECT COUNT(*) FROM audit_log", Integer.class),
         "latestDrafts", jdbc.queryForList("SELECT draft_id, status, encounter_id FROM prescription_draft ORDER BY created_at DESC LIMIT 5"),
         "latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"),
-        "latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5")
+        "latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5"),
+        "latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5")
     );
   }
 }

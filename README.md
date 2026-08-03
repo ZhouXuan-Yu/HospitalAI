@@ -18,6 +18,8 @@ AI service: http://localhost:8000
 
 ```powershell
 npm --prefix apps/web install
+npm install
+npm run test:contracts
 npm --prefix apps/web run test
 npm --prefix apps/web run build
 .\.venv-ai\Scripts\python.exe -m pytest tests -q

@@ -8,8 +8,10 @@ import static org.mockito.Mockito.when;
 import com.hospitalai.core.model.Dto.Encounter;
 import com.hospitalai.core.model.Dto.Fact;
 import com.hospitalai.core.model.Dto.PatientProfile;
+import com.hospitalai.core.model.Dto.ClinicalRuleSummary;
 import com.hospitalai.core.service.RecommendationService;
 import com.hospitalai.core.repository.WorkbenchRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,14 @@ class RuleLogicTest {
     when(repo.severeAdrs(patientId)).thenReturn(adrs);
     when(repo.activeOrders(patientId)).thenReturn(List.of());
     when(repo.missingLabs(encounterId)).thenReturn(missingLabs);
+    when(repo.rule("HR-ALG-001")).thenReturn(rule("HR-ALG-001", "block", "confirmedAllergyBlock"));
+    when(repo.rule("HR-ADR-001")).thenReturn(rule("HR-ADR-001", "strong", "severeAdrAlert"));
+    when(repo.rule("HR-XDEPT-001")).thenReturn(rule("HR-XDEPT-001", "strong", "crossDepartmentMedicationAlert"));
+    when(repo.rule("HR-MISS-001")).thenReturn(rule("HR-MISS-001", "info", "missingCriticalLabAlert"));
     return new RecommendationService(repo, "http://127.0.0.1:1", "test_doctor");
+  }
+
+  private ClinicalRuleSummary rule(String ruleId, String severity, String handler) {
+    return new ClinicalRuleSummary(ruleId, "2026.08", ruleId, "published-demo", severity, "test basis", handler, Instant.parse("2026-08-03T00:00:00Z"));
   }
 }

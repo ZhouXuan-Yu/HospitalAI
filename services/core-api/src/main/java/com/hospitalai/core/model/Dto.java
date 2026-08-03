@@ -11,6 +11,9 @@ public final class Dto {
   public record Encounter(String encounterId, String patientId, String department, String diagnosis, int dataVersion, String scenario) {}
   public record WorklistItem(String encounterId, String patientId, String displayName, String sex, int age, String department, String diagnosis, int dataVersion, String scenario, Instant admittedAt, String sourcePatientId) {}
   public record Fact(String type, String label, String value, String source, String sourceId, Instant collectedAt, String missingStatus) {}
+  public record ClinicalRuleSummary(String ruleId, String version, String name, String status, String severity, String basis, String deterministicHandler, Instant publishedAt) {}
+  public record ClinicalRuleCaseSummary(String caseId, String ruleId, String ruleVersion, String title, String inputRef, String expectedResult, String status) {}
+  public record RuleGovernancePayload(List<ClinicalRuleSummary> rules, List<ClinicalRuleCaseSummary> cases) {}
   public record SafetyAlert(String ruleId, String version, String status, String level, String message, List<String> facts, boolean blocking) {}
   public record EvidenceSnippet(String evidenceId, String title, String status, String version, String effectiveDate, String locator, String text, double score) {}
   public record CandidatePlan(String candidateId, String name, List<String> drugCodes, String regimen, String reason, String difference, List<String> risks, List<String> monitoring, List<EvidenceSnippet> evidence, List<String> excludedDrugs, boolean blocked) {}

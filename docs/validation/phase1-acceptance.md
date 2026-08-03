@@ -91,5 +91,39 @@ New evidence:
 Remaining M1 gaps:
 
 - PostgreSQL/pgvector integration validation is still pending because this local session needs Docker Desktop Linux engine or PostgreSQL credentials.
-- OpenAPI and JSON Schema files exist, but automated contract validation has not yet been added to CI.
 - Online HIS connectors remain specified by contract; field mapping against a real hospital export sample is still pending.
+
+## 2026-08-03 Contract And Rule Governance Validation
+
+Commands:
+
+```powershell
+npm install
+npm run test:contracts
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+git diff --check
+```
+
+Results:
+
+- Contract validation: passed; HIS snapshot JSON Schema and OpenAPI path gates are valid.
+- Java: 6 passed, 0 failed.
+- Python: 2 passed, 0 failed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+- Whitespace check: passed.
+
+New evidence:
+
+- Import API now covers normal import, duplicate batch idempotency, old-version rejection and missing schemaVersion 400 response.
+- `/api/rules` returns published demo rules and rule cases from `clinical_rule` and `clinical_rule_case`.
+- `GET /api/workbench/E002-2` records rule execution rows in `rule_execution`, visible through `/api/debug/persistence`.
+
+Remaining M2 gaps:
+
+- Rule draft, review, publish and withdraw write APIs are still pending.
+- Dose calculator interface and deterministic dose rule cases are still pending.
+- Evidence document parsing, block/chunk storage and published-only database retrieval are still pending.
