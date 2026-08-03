@@ -134,4 +134,117 @@ class TrackingAndResearchAssetsTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("reviewed")));
   }
+
+  @Test
+  void runsStatisticsExportsDeidentifiedDatasetAndPublishesReviewedKnowledge() throws Exception {
+    mvc.perform(post("/api/research/cohorts")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "cohortId": "COHORT-CAP-002",
+                  "name": "CAP 住院患者可复现统计队列",
+                  "diseaseScope": "社区获得性肺炎",
+                  "inclusionCriteria": "诊断包含社区获得性肺炎且完成脱敏映射",
+                  "exclusionCriteria": "缺少就诊号或未完成审核的数据"
+                }
+                """))
+        .andExpect(status().isOk());
+
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/variables")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "variableId": "VAR-CAP-OUTCOME",
+                  "name": "出院结局",
+                  "definition": "本次住院出院时的结局分类",
+                  "sourceTable": "discharge_outcome",
+                  "missingPolicy": "report_missing_rate",
+                  "version": "2026.08"
+                }
+                """))
+        .andExpect(status().isOk());
+
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/quality-check"))
+        .andExpect(status().isOk());
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/freeze"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("frozen")));
+
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/analysis-runs")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "scriptVersion": "fixed-cap-statistics.v1",
+                  "statisticPlan": "CAP 队列描述性统计",
+                  "runner": "python-worker"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("completed")))
+        .andExpect(jsonPath("$.inputHash", containsString("")))
+        .andExpect(jsonPath("$.resultSummary", containsString("fixed-cap-statistics.v1")));
+
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/exports")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "requestedBy": "researcher_demo", "purpose": "统计复核" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("generated")))
+        .andExpect(jsonPath("$.artifactUri", containsString("local://research/COHORT-CAP-002/exports/")));
+
+    String reportJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/reports"))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString();
+    String reportId = mapper.readTree(reportJson).get("reportId").asText();
+    mvc.perform(post("/api/research/reports/" + reportId + "/review")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "reviewNote": "统计口径和缺失说明已复核。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("reviewed")));
+
+    String submissionJson = mvc.perform(post("/api/knowledge/submissions")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "reportId": "%s",
+                  "submissionType": "research_conclusion",
+                  "submittedBy": "researcher_demo"
+                }
+                """.formatted(reportId)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("review_pending")))
+        .andReturn().getResponse().getContentAsString();
+    String submissionId = mapper.readTree(submissionJson).get("submissionId").asText();
+
+    mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/reviews")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "reviewerRole": "pharmacist", "decision": "approve", "note": "药学口径通过。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.decision", is("approve")));
+
+    mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/reviews")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "reviewerRole": "research_director", "decision": "approve", "note": "科研负责人通过。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.reviewerRole", is("research_director")));
+
+    mvc.perform(get("/api/knowledge/submissions").param("status", "published"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].submissionId", hasItem(submissionId)));
+
+    mvc.perform(post("/api/knowledge/submissions/" + submissionId + "/withdraw")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "reason": "演示撤回，验证发布后可追溯撤回。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("withdrawn")));
+  }
 }

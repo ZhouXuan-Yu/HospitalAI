@@ -22,8 +22,16 @@ import com.hospitalai.core.model.Dto.PrescriptionDraftWriteTaskSummary;
 import com.hospitalai.core.model.Dto.MedicationFeedbackRequest;
 import com.hospitalai.core.model.Dto.MedicationFeedbackSummary;
 import com.hospitalai.core.model.Dto.RecommendationSnapshotSummary;
+import com.hospitalai.core.model.Dto.KnowledgeReviewRequest;
+import com.hospitalai.core.model.Dto.KnowledgeReviewSummary;
+import com.hospitalai.core.model.Dto.KnowledgeSubmissionRequest;
+import com.hospitalai.core.model.Dto.KnowledgeSubmissionSummary;
+import com.hospitalai.core.model.Dto.ResearchAnalysisRunRequest;
+import com.hospitalai.core.model.Dto.ResearchAnalysisRunSummary;
 import com.hospitalai.core.model.Dto.ResearchCohortRequest;
 import com.hospitalai.core.model.Dto.ResearchCohortSummary;
+import com.hospitalai.core.model.Dto.ResearchExportRequest;
+import com.hospitalai.core.model.Dto.ResearchExportSummary;
 import com.hospitalai.core.model.Dto.ResearchQualityCheckSummary;
 import com.hospitalai.core.model.Dto.ResearchReportDraftSummary;
 import com.hospitalai.core.model.Dto.ResearchReportReviewRequest;
@@ -297,6 +305,36 @@ public class WorkbenchController {
     return repository.cohort(cohortId);
   }
 
+  @GetMapping("/research/cohorts/{cohortId}/analysis-runs")
+  public List<ResearchAnalysisRunSummary> analysisRuns(@PathVariable String cohortId) {
+    return repository.analysisRuns(cohortId);
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/analysis-runs")
+  public ResearchAnalysisRunSummary runAnalysis(@PathVariable String cohortId, @RequestBody(required = false) ResearchAnalysisRunRequest request) {
+    ResearchAnalysisRunRequest normalized = request == null
+        ? new ResearchAnalysisRunRequest("fixed-cap-statistics.v1", "CAP cohort descriptive statistics", "python-worker")
+        : request;
+    var run = repository.runResearchAnalysis(cohortId, normalized);
+    repository.audit("research_demo", "RESEARCH_ANALYSIS_COMPLETED", run.runId(), run.outputHash());
+    return run;
+  }
+
+  @GetMapping("/research/cohorts/{cohortId}/exports")
+  public List<ResearchExportSummary> exports(@PathVariable String cohortId) {
+    return repository.exports(cohortId);
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/exports")
+  public ResearchExportSummary createExport(@PathVariable String cohortId, @RequestBody(required = false) ResearchExportRequest request) {
+    ResearchExportRequest normalized = request == null
+        ? new ResearchExportRequest("research_demo", "research-review")
+        : request;
+    var export = repository.createDeidentifiedExport(cohortId, normalized);
+    repository.audit("research_demo", "RESEARCH_DEIDENTIFIED_EXPORT_CREATED", export.exportId(), export.dataHash());
+    return export;
+  }
+
   @GetMapping("/research/cohorts/{cohortId}/reports")
   public List<ResearchReportDraftSummary> reportDrafts(@PathVariable String cohortId) {
     return repository.reportDrafts(cohortId);
@@ -317,6 +355,31 @@ public class WorkbenchController {
     var report = repository.reviewReport(reportId, request.reviewNote());
     repository.audit("research_demo", "RESEARCH_REPORT_REVIEWED", reportId, request.reviewNote());
     return report;
+  }
+
+  @GetMapping("/knowledge/submissions")
+  public List<KnowledgeSubmissionSummary> knowledgeSubmissions(@RequestParam(required = false) String status) {
+    return repository.knowledgeSubmissions(status);
+  }
+
+  @PostMapping("/knowledge/submissions")
+  public KnowledgeSubmissionSummary submitKnowledge(@RequestBody KnowledgeSubmissionRequest request) {
+    var submission = repository.submitKnowledge(request);
+    repository.audit("knowledge_demo", "KNOWLEDGE_SUBMITTED", submission.submissionId(), submission.status());
+    return submission;
+  }
+
+  @PostMapping("/knowledge/submissions/{submissionId}/reviews")
+  public KnowledgeReviewSummary reviewKnowledge(@PathVariable String submissionId, @RequestBody KnowledgeReviewRequest request) {
+    var review = repository.reviewKnowledge(submissionId, request);
+    repository.audit("knowledge_demo", "KNOWLEDGE_REVIEW_RECORDED", submissionId, review.reviewerRole() + ":" + review.decision());
+    return review;
+  }
+
+  @PostMapping("/knowledge/submissions/{submissionId}/withdraw")
+  public KnowledgeSubmissionSummary withdrawKnowledge(@PathVariable String submissionId, @RequestBody(required = false) Map<String, String> request) {
+    String reason = request == null ? "withdrawn" : request.getOrDefault("reason", "withdrawn");
+    return repository.withdrawKnowledge(submissionId, reason);
   }
 
   @PostMapping("/integration/his/snapshots/import")

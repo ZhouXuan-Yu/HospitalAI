@@ -1,7 +1,11 @@
 package com.hospitalai.core.repository;
 
 import com.hospitalai.core.model.Dto.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -731,6 +735,166 @@ public class WorkbenchRepository {
         rs.getTimestamp(7).toInstant(), rs.getString(8)), reportId);
   }
 
+  public ResearchAnalysisRunSummary runResearchAnalysis(String cohortId, ResearchAnalysisRunRequest request) {
+    var cohort = cohort(cohortId);
+    if (!"frozen".equals(cohort.status())) {
+      throw new IllegalArgumentException("cohort must be frozen before statistical analysis");
+    }
+    var latestQuality = latestQualityCheck(cohortId);
+    int subjects = jdbc.queryForObject("SELECT COUNT(DISTINCT patient_id) FROM encounters WHERE diagnosis LIKE ?", Integer.class, "%" + cohort.diseaseScope() + "%");
+    int feedbackCount = jdbc.queryForObject("SELECT COUNT(*) FROM medication_feedback", Integer.class);
+    int outcomeCount = jdbc.queryForObject("SELECT COUNT(*) FROM discharge_outcome", Integer.class);
+    int variableCount = jdbc.queryForObject("SELECT COUNT(*) FROM research_variable WHERE cohort_id = ?", Integer.class, cohortId);
+    String scriptVersion = blankToDefault(request.scriptVersion(), "fixed-cap-statistics.v1");
+    String statisticPlan = blankToDefault(request.statisticPlan(), "CAP cohort descriptive statistics");
+    String inputMaterial = cohortId + "|" + cohort.status() + "|" + latestQuality.checkId() + "|" + subjects + "|" + feedbackCount + "|" + outcomeCount + "|" + variableCount;
+    String inputHash = sha256(inputMaterial);
+    String resultSummary = "subjects=" + subjects
+        + "; variables=" + variableCount
+        + "; feedback_records=" + feedbackCount
+        + "; discharge_outcomes=" + outcomeCount
+        + "; missing=" + latestQuality.missingSummary()
+        + "; script=" + scriptVersion;
+    String outputHash = sha256(resultSummary);
+    String runId = "ANR-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    String artifactUri = "local://research/" + cohortId + "/analysis/" + runId + ".json";
+    jdbc.update("""
+        INSERT INTO research_analysis_run(run_id, cohort_id, status, script_version, statistic_plan, input_hash, output_hash, result_summary, artifact_uri, started_at, completed_at)
+        VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
+        """, runId, cohortId, scriptVersion, statisticPlan, inputHash, outputHash, resultSummary, artifactUri, now, now);
+    return new ResearchAnalysisRunSummary(runId, cohortId, "completed", scriptVersion, statisticPlan, inputHash, outputHash, resultSummary, artifactUri, now, now);
+  }
+
+  public List<ResearchAnalysisRunSummary> analysisRuns(String cohortId) {
+    return jdbc.query("""
+        SELECT run_id, cohort_id, status, script_version, statistic_plan, input_hash, output_hash, result_summary, artifact_uri, started_at, completed_at
+        FROM research_analysis_run
+        WHERE cohort_id = ?
+        ORDER BY started_at DESC
+        """, (rs, row) -> new ResearchAnalysisRunSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getString(7), rs.getString(8), rs.getString(9), rs.getTimestamp(10).toInstant(),
+        rs.getTimestamp(11) == null ? null : rs.getTimestamp(11).toInstant()), cohortId);
+  }
+
+  public ResearchExportSummary createDeidentifiedExport(String cohortId, ResearchExportRequest request) {
+    var cohort = cohort(cohortId);
+    if (!"frozen".equals(cohort.status())) {
+      throw new IllegalArgumentException("cohort must be frozen before export");
+    }
+    int rowCount = jdbc.queryForObject("SELECT COUNT(DISTINCT patient_id) FROM encounters WHERE diagnosis LIKE ?", Integer.class, "%" + cohort.diseaseScope() + "%");
+    int variableCount = jdbc.queryForObject("SELECT COUNT(*) FROM research_variable WHERE cohort_id = ?", Integer.class, cohortId);
+    String exportId = "EXP-" + UUID.randomUUID();
+    String artifactUri = "local://research/" + cohortId + "/exports/" + exportId + ".jsonl";
+    String purpose = blankToDefault(request.purpose(), "research-review");
+    String requestedBy = blankToDefault(request.requestedBy(), "research_demo");
+    String dataHash = sha256(cohortId + "|" + rowCount + "|" + variableCount + "|" + purpose);
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO research_deidentified_export(export_id, cohort_id, status, row_count, artifact_uri, data_hash, requested_by, purpose, created_at)
+        VALUES (?, ?, 'generated', ?, ?, ?, ?, ?, ?)
+        """, exportId, cohortId, rowCount, artifactUri, dataHash, requestedBy, purpose, now);
+    return new ResearchExportSummary(exportId, cohortId, "generated", rowCount, artifactUri, dataHash, requestedBy, purpose, now);
+  }
+
+  public List<ResearchExportSummary> exports(String cohortId) {
+    return jdbc.query("""
+        SELECT export_id, cohort_id, status, row_count, artifact_uri, data_hash, requested_by, purpose, created_at
+        FROM research_deidentified_export
+        WHERE cohort_id = ?
+        ORDER BY created_at DESC
+        """, (rs, row) -> new ResearchExportSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getString(5), rs.getString(6),
+        rs.getString(7), rs.getString(8), rs.getTimestamp(9).toInstant()), cohortId);
+  }
+
+  public KnowledgeSubmissionSummary submitKnowledge(KnowledgeSubmissionRequest request) {
+    var report = report(request.reportId());
+    if (!"reviewed".equals(report.status())) {
+      throw new IllegalArgumentException("research report must be reviewed before knowledge submission");
+    }
+    String submissionId = "KNS-" + UUID.randomUUID();
+    String submittedBy = blankToDefault(request.submittedBy(), "research_demo");
+    String submissionType = blankToDefault(request.submissionType(), "research_conclusion");
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO knowledge_submission(submission_id, report_id, status, submission_type, title, submitted_by, submitted_at)
+        VALUES (?, ?, 'review_pending', ?, ?, ?, ?)
+        """, submissionId, report.reportId(), submissionType, report.title(), submittedBy, now);
+    return new KnowledgeSubmissionSummary(submissionId, report.reportId(), "review_pending", submissionType, report.title(), submittedBy, now, null);
+  }
+
+  public List<KnowledgeSubmissionSummary> knowledgeSubmissions(String status) {
+    String sql = """
+        SELECT submission_id, report_id, status, submission_type, title, submitted_by, submitted_at, published_at
+        FROM knowledge_submission
+        """;
+    if (status == null || status.isBlank()) {
+      return jdbc.query(sql + "ORDER BY submitted_at DESC", this::mapKnowledgeSubmission);
+    }
+    return jdbc.query(sql + "WHERE status = ? ORDER BY submitted_at DESC", this::mapKnowledgeSubmission, status);
+  }
+
+  public KnowledgeReviewSummary reviewKnowledge(String submissionId, KnowledgeReviewRequest request) {
+    String decision = blankToDefault(request.decision(), "approve");
+    if (!List.of("approve", "reject").contains(decision)) {
+      throw new IllegalArgumentException("decision must be approve or reject");
+    }
+    String role = blankToDefault(request.reviewerRole(), "pharmacist");
+    String reviewId = "KRV-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO knowledge_submission_review(review_id, submission_id, reviewer_role, decision, note, reviewed_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, reviewId, submissionId, role, decision, blankToDefault(request.note(), "reviewed"), now);
+    if ("reject".equals(decision)) {
+      jdbc.update("UPDATE knowledge_submission SET status = 'rejected' WHERE submission_id = ?", submissionId);
+    } else if (approvedKnowledgeReviewRoleCount(submissionId) >= 2) {
+      jdbc.update("UPDATE knowledge_submission SET status = 'published', published_at = ? WHERE submission_id = ?", now, submissionId);
+    }
+    return new KnowledgeReviewSummary(reviewId, submissionId, role, decision, blankToDefault(request.note(), "reviewed"), now);
+  }
+
+  public KnowledgeSubmissionSummary withdrawKnowledge(String submissionId, String reason) {
+    jdbc.update("UPDATE knowledge_submission SET status = 'withdrawn' WHERE submission_id = ?", submissionId);
+    audit("knowledge_admin", "KNOWLEDGE_WITHDRAWN", submissionId, blankToDefault(reason, "withdrawn"));
+    return knowledgeSubmission(submissionId);
+  }
+
+  private int approvedKnowledgeReviewRoleCount(String submissionId) {
+    Integer count = jdbc.queryForObject("""
+        SELECT COUNT(DISTINCT reviewer_role)
+        FROM knowledge_submission_review
+        WHERE submission_id = ? AND decision = 'approve'
+        """, Integer.class, submissionId);
+    return count == null ? 0 : count;
+  }
+
+  private ResearchReportDraftSummary report(String reportId) {
+    return jdbc.queryForObject("""
+        SELECT report_id, cohort_id, status, title, markdown_body, generated_at, reviewed_at, review_note
+        FROM research_report_draft
+        WHERE report_id = ?
+        """, (rs, row) -> new ResearchReportDraftSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getTimestamp(6).toInstant(),
+        rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toInstant(), rs.getString(8)), reportId);
+  }
+
+  private KnowledgeSubmissionSummary knowledgeSubmission(String submissionId) {
+    return jdbc.queryForObject("""
+        SELECT submission_id, report_id, status, submission_type, title, submitted_by, submitted_at, published_at
+        FROM knowledge_submission
+        WHERE submission_id = ?
+        """, this::mapKnowledgeSubmission, submissionId);
+  }
+
+  private KnowledgeSubmissionSummary mapKnowledgeSubmission(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+    return new KnowledgeSubmissionSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant());
+  }
+
   public void audit(String actor, String action, String objectId, String detail) {
     jdbc.update("INSERT INTO audit_log(audit_id, actor, action, object_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         "AUD-" + UUID.randomUUID(), actor, action, objectId, detail, Instant.now());
@@ -863,6 +1027,21 @@ public class WorkbenchRepository {
     snapshot.put("latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5"));
     snapshot.put("timelineCount", jdbc.queryForObject("SELECT COUNT(*) FROM medication_timeline_event", Integer.class));
     snapshot.put("researchCohortCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_cohort", Integer.class));
+    snapshot.put("researchAnalysisRunCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_analysis_run", Integer.class));
+    snapshot.put("knowledgeSubmissionCount", jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_submission", Integer.class));
     return snapshot;
+  }
+
+  private static String blankToDefault(String value, String fallback) {
+    return value == null || value.isBlank() ? fallback : value;
+  }
+
+  private static String sha256(String value) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException ex) {
+      throw new IllegalStateException("SHA-256 unavailable", ex);
+    }
   }
 }

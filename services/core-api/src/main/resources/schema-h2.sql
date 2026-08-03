@@ -1,4 +1,8 @@
 DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS knowledge_submission_review;
+DROP TABLE IF EXISTS knowledge_submission;
+DROP TABLE IF EXISTS research_deidentified_export;
+DROP TABLE IF EXISTS research_analysis_run;
 DROP TABLE IF EXISTS prescription_draft_write_task;
 DROP TABLE IF EXISTS prescription_draft;
 DROP TABLE IF EXISTS collaboration_task;
@@ -66,4 +70,8 @@ CREATE TABLE audit_log (audit_id TEXT PRIMARY KEY, actor TEXT NOT NULL, action T
 CREATE TABLE research_cohort (cohort_id TEXT PRIMARY KEY, name TEXT NOT NULL, disease_scope TEXT NOT NULL, inclusion_criteria TEXT NOT NULL, exclusion_criteria TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMP NOT NULL, frozen_at TIMESTAMP);
 CREATE TABLE research_variable (variable_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, name TEXT NOT NULL, definition TEXT NOT NULL, source_table TEXT NOT NULL, missing_policy TEXT NOT NULL, version TEXT NOT NULL);
 CREATE TABLE research_dataset_quality_check (check_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, total_subjects INT NOT NULL, missing_summary TEXT NOT NULL, issue_summary TEXT NOT NULL, checked_at TIMESTAMP NOT NULL);
+CREATE TABLE research_analysis_run (run_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, script_version TEXT NOT NULL, statistic_plan TEXT NOT NULL, input_hash TEXT NOT NULL, output_hash TEXT NOT NULL, result_summary TEXT NOT NULL, artifact_uri TEXT NOT NULL, started_at TIMESTAMP NOT NULL, completed_at TIMESTAMP);
+CREATE TABLE research_deidentified_export (export_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, row_count INT NOT NULL, artifact_uri TEXT NOT NULL, data_hash TEXT NOT NULL, requested_by TEXT NOT NULL, purpose TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
 CREATE TABLE research_report_draft (report_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, title TEXT NOT NULL, markdown_body TEXT NOT NULL, generated_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, review_note TEXT);
+CREATE TABLE knowledge_submission (submission_id TEXT PRIMARY KEY, report_id TEXT NOT NULL, status TEXT NOT NULL, submission_type TEXT NOT NULL, title TEXT NOT NULL, submitted_by TEXT NOT NULL, submitted_at TIMESTAMP NOT NULL, published_at TIMESTAMP);
+CREATE TABLE knowledge_submission_review (review_id TEXT PRIMARY KEY, submission_id TEXT NOT NULL, reviewer_role TEXT NOT NULL, decision TEXT NOT NULL, note TEXT NOT NULL, reviewed_at TIMESTAMP NOT NULL);

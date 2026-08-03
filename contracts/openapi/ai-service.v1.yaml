@@ -9,3 +9,9 @@ paths:
       responses:
         "200":
           description: Evidence snippets and explanation draft
+  /v1/research/statistics/run:
+    post:
+      summary: Run fixed-version deterministic research statistics on a de-identified aggregate snapshot.
+      responses:
+        "200":
+          description: Reproducible statistics result with input and output hashes.

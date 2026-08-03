@@ -97,3 +97,28 @@ def test_core_evidence_failure_is_explicit_degradation(monkeypatch):
     body = response.json()
     assert body["status"] == "core_evidence_degraded"
     assert body["snippets"] == []
+
+
+def test_research_statistics_are_deterministic_and_hashed():
+    payload = {
+        "cohortId": "COHORT-CAP-001",
+        "scriptVersion": "fixed-cap-statistics.v1",
+        "totalSubjects": 5,
+        "variables": ["CRP", "过敏史"],
+        "feedbackRecords": 2,
+        "dischargeOutcomes": 1,
+        "missingSummary": "critical_lab_missing_count=1",
+    }
+    first = client.post("/v1/research/statistics/run", json=payload)
+    second = client.post("/v1/research/statistics/run", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["status"] == "completed"
+    assert first.json()["scriptVersion"] == "fixed-cap-statistics.v1"
+    assert first.json()["inputHash"] == second.json()["inputHash"]
+    assert first.json()["outputHash"] == second.json()["outputHash"]
+    assert first.json()["resultSummary"]["limitations"] == [
+        "descriptive_statistics_only",
+        "not_publication_ready_without_human_review",
+    ]

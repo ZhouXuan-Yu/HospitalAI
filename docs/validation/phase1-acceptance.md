@@ -283,3 +283,38 @@ Remaining M4 gaps:
 - Fixed Python statistical execution, script version capture, output hashing and reproducible analysis directory are still pending.
 - ADR escalation into pharmacist or knowledge-review workflow is still pending.
 - De-identified export package and formal multi-person knowledge publication/withdrawal are still pending.
+
+## 2026-08-03 M4 Statistics Export And Knowledge Review Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm run test:contracts
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 17 passed, 0 failed.
+- Python: 5 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `POST /api/research/cohorts/{cohortId}/analysis-runs` requires a frozen cohort and records script version, statistic plan, input hash, output hash, result summary and artifact URI.
+- FastAPI `POST /v1/research/statistics/run` returns deterministic fixed-version descriptive statistics with stable input/output hashes for the same de-identified aggregate snapshot.
+- `POST /api/research/cohorts/{cohortId}/exports` requires a frozen cohort and records a de-identified export package URI, row count, data hash, requester and purpose.
+- `POST /api/knowledge/submissions` rejects unreviewed reports by contract of the Core API state path and accepts reviewed report drafts as knowledge candidates.
+- `POST /api/knowledge/submissions/{submissionId}/reviews` records role-scoped reviews; two distinct approving reviewer roles publish the candidate.
+- `POST /api/knowledge/submissions/{submissionId}/withdraw` changes the candidate to `withdrawn` and writes audit evidence.
+
+Remaining M4 gaps:
+
+- Java reliable Worker invocation of the Python statistics endpoint and real artifact file persistence are still pending.
+- ADR escalation into pharmacist or knowledge-review workflow is still pending.
+- Formal knowledge UI, citation controls and finer role permissions are still pending.

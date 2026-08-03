@@ -152,6 +152,28 @@ paths:
       responses:
         "200":
           description: Frozen research cohort.
+  /api/research/cohorts/{cohortId}/analysis-runs:
+    get:
+      summary: List reproducible research analysis runs for a frozen cohort.
+      responses:
+        "200":
+          description: Research analysis runs.
+    post:
+      summary: Run fixed-version descriptive statistics for a frozen cohort.
+      responses:
+        "200":
+          description: Completed analysis run with input and output hashes.
+  /api/research/cohorts/{cohortId}/exports:
+    get:
+      summary: List de-identified research export packages for a cohort.
+      responses:
+        "200":
+          description: De-identified export packages.
+    post:
+      summary: Create a de-identified export package record for review and reproducibility.
+      responses:
+        "200":
+          description: Generated de-identified export package.
   /api/research/cohorts/{cohortId}/reports:
     get:
       summary: List report drafts for a cohort.
@@ -169,6 +191,29 @@ paths:
       responses:
         "200":
           description: Reviewed report draft.
+  /api/knowledge/submissions:
+    get:
+      summary: List knowledge submissions by status.
+      responses:
+        "200":
+          description: Knowledge submission queue.
+    post:
+      summary: Submit a reviewed research report as a knowledge candidate.
+      responses:
+        "200":
+          description: Knowledge submission pending multi-person review.
+  /api/knowledge/submissions/{submissionId}/reviews:
+    post:
+      summary: Record one role's knowledge submission review decision.
+      responses:
+        "200":
+          description: Knowledge review record; publishes after required approvals.
+  /api/knowledge/submissions/{submissionId}/withdraw:
+    post:
+      summary: Withdraw a published or pending knowledge submission with audit.
+      responses:
+        "200":
+          description: Withdrawn knowledge submission.
   /api/rules:
     get:
       summary: List clinical rules and rule cases.

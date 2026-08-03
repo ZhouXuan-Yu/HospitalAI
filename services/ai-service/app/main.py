@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import hashlib
 from typing import Any
 
 import httpx
@@ -27,6 +28,16 @@ class EvidenceRequest(BaseModel):
     patientId: str
     diagnosis: str
     facts: list[Any] = Field(default_factory=list)
+
+
+class ResearchStatisticSnapshot(BaseModel):
+    cohortId: str
+    scriptVersion: str = "fixed-cap-statistics.v1"
+    totalSubjects: int
+    variables: list[str] = Field(default_factory=list)
+    feedbackRecords: int = 0
+    dischargeOutcomes: int = 0
+    missingSummary: str = ""
 
 
 DEMO_SNIPPETS = [
@@ -90,6 +101,27 @@ def retrieve_evidence(request: EvidenceRequest) -> dict[str, Any]:
     }
 
 
+@app.post("/v1/research/statistics/run")
+def run_research_statistics(snapshot: ResearchStatisticSnapshot) -> dict[str, Any]:
+    payload = snapshot.model_dump(mode="json")
+    input_hash = stable_hash(payload)
+    result_summary = {
+        "subjects": snapshot.totalSubjects,
+        "variableCount": len(snapshot.variables),
+        "feedbackRecords": snapshot.feedbackRecords,
+        "dischargeOutcomes": snapshot.dischargeOutcomes,
+        "missingSummary": snapshot.missingSummary,
+        "limitations": ["descriptive_statistics_only", "not_publication_ready_without_human_review"],
+    }
+    return {
+        "status": "completed",
+        "scriptVersion": snapshot.scriptVersion,
+        "inputHash": input_hash,
+        "outputHash": stable_hash(result_summary),
+        "resultSummary": result_summary,
+    }
+
+
 def retrieve_core_published_chunks(request: EvidenceRequest) -> dict[str, Any] | None:
     base_url = os.getenv("CORE_API_BASE_URL", "").rstrip("/")
     if not base_url:
@@ -140,3 +172,10 @@ def retrieve_core_published_chunks(request: EvidenceRequest) -> dict[str, Any] |
         "snippets": snippets,
         "explanationDraft": "解释草稿仅基于 Core API 已发布证据切片和结构化事实，不能替代医生或药师审核。",
     }
+
+
+def stable_hash(value: Any) -> str:
+    import json
+
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()

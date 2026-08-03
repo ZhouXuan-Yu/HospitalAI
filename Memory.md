@@ -118,10 +118,10 @@
 4. 已推进 M1 真实数据链路基座：Flyway 迁移、HIS snapshot 导入、inbound event、同步游标、工作列表 API 和契约校验已通。
 5. 已推进 M2 规则与证据治理：规则生命周期、剂量计算器、EvidenceDocument/Block/Chunk、证据上传/解析/发布/撤回、FastAPI 通过 Core API 获取已发布证据已通。
 6. 已推进 M3 推荐审核闭环：推荐快照状态机、医生决策、阻断不生成草稿、强提醒药师复核、跨科室协同任务、草稿幂等写入、失败重试状态、HIS callback 和数据版本过期已通。
-7. 已推进 M4 患者追踪与科研资产骨架：用药事件链、反馈、不良反应信号、出院结局、研究队列、变量字典、质量检查、队列冻结、报告草稿和报告审核 API 已通。
+7. 已推进 M4 患者追踪与科研资产骨架：用药事件链、反馈、不良反应信号、出院结局、研究队列、变量字典、质量检查、队列冻结、统计运行记录、脱敏导出记录、报告草稿、报告审核、知识提交、两角色知识审核发布和撤回 API 已通；FastAPI 已有固定统计端点并输出稳定哈希。
 8. 本机验证使用 `h2-demo` profile，因为 Docker Desktop Linux engine 未运行，PostgreSQL 18 虽运行但无 postgres 凭据；默认工程仍保留 PostgreSQL/pgvector Compose 基线。
 9. 验证记录在 `docs/validation/phase1-acceptance.md`，截图在 `docs/validation/workbench-1366.png` 和 `docs/validation/workbench-1920.png`。
-10. 下一步优先补 M4 剩余项：固定 Python 统计执行、脚本版本和输出哈希、脱敏导出包、ADR 升级联动、知识提交/多人审核/发布撤回。
+10. 下一步优先补 M4 剩余项：Java 可靠 Worker 调用 Python 统计端点、统计/导出真实产物落盘、ADR 升级联动、正式知识库 UI、引用控制和更细角色权限。
 11. 随后进入 M5：权限票据和 RBAC/ABAC、超级管理员约束硬化、OpenTelemetry、备份恢复演练、安全扫描、性能压测、最终需求追踪矩阵和验收结论。
 
 ## 2026-08-03 新增商业化交付基线

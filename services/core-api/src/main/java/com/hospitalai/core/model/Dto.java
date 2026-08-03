@@ -50,8 +50,16 @@ public final class Dto {
   public record ResearchCohortSummary(String cohortId, String name, String diseaseScope, String inclusionCriteria, String exclusionCriteria, String status, Instant createdAt, Instant frozenAt) {}
   public record ResearchVariableSummary(String variableId, String cohortId, String name, String definition, String sourceTable, String missingPolicy, String version) {}
   public record ResearchQualityCheckSummary(String checkId, String cohortId, String status, int totalSubjects, String missingSummary, String issueSummary, Instant checkedAt) {}
+  public record ResearchAnalysisRunRequest(String scriptVersion, String statisticPlan, String runner) {}
+  public record ResearchAnalysisRunSummary(String runId, String cohortId, String status, String scriptVersion, String statisticPlan, String inputHash, String outputHash, String resultSummary, String artifactUri, Instant startedAt, Instant completedAt) {}
+  public record ResearchExportRequest(String requestedBy, String purpose) {}
+  public record ResearchExportSummary(String exportId, String cohortId, String status, int rowCount, String artifactUri, String dataHash, String requestedBy, String purpose, Instant createdAt) {}
   public record ResearchReportDraftSummary(String reportId, String cohortId, String status, String title, String markdownBody, Instant generatedAt, Instant reviewedAt, String reviewNote) {}
   public record ResearchReportReviewRequest(String reviewNote) {}
+  public record KnowledgeSubmissionRequest(String reportId, String submissionType, String submittedBy) {}
+  public record KnowledgeSubmissionSummary(String submissionId, String reportId, String status, String submissionType, String title, String submittedBy, Instant submittedAt, Instant publishedAt) {}
+  public record KnowledgeReviewRequest(String reviewerRole, String decision, String note) {}
+  public record KnowledgeReviewSummary(String reviewId, String submissionId, String reviewerRole, String decision, String note, Instant reviewedAt) {}
   public record SnapshotImportRequest(String sourceSystem, String sourceBatchId, Map<String, Object> payload) {}
   public record SnapshotImportResponse(String eventId, String status, String schemaVersion, int patientsUpserted, int encountersUpserted, int catalogItemsUpserted, int mappingsUpserted, List<String> warnings) {}
 }

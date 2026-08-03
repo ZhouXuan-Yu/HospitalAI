@@ -40,8 +40,13 @@ const requiredCorePaths = [
   '/api/research/cohorts/{cohortId}/variables',
   '/api/research/cohorts/{cohortId}/quality-check',
   '/api/research/cohorts/{cohortId}/freeze',
+  '/api/research/cohorts/{cohortId}/analysis-runs',
+  '/api/research/cohorts/{cohortId}/exports',
   '/api/research/cohorts/{cohortId}/reports',
   '/api/research/reports/{reportId}/review',
+  '/api/knowledge/submissions',
+  '/api/knowledge/submissions/{submissionId}/reviews',
+  '/api/knowledge/submissions/{submissionId}/withdraw',
   '/api/rules',
   '/api/rules/{ruleId}/versions/{version}/submit-review',
   '/api/rules/{ruleId}/versions/{version}/publish',
@@ -59,9 +64,14 @@ const requiredHisPaths = [
   '/v1/his/prescription-drafts',
   '/v1/his/prescription-drafts/{draftId}/status'
 ]
+const requiredAiPaths = [
+  '/v1/evidence/retrieve',
+  '/v1/research/statistics/run'
+]
 
 assertOpenApi('contracts/openapi/core-api.v1.yaml', requiredCorePaths)
 assertOpenApi('contracts/openapi/his-adapter.v1.yaml', requiredHisPaths)
+assertOpenApi('contracts/openapi/ai-service.v1.yaml', requiredAiPaths)
 
 console.log('Contract validation passed: HIS snapshot JSON Schema and OpenAPI path gates are valid.')
 
