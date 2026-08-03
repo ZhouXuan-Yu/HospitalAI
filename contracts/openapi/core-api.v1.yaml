@@ -180,6 +180,12 @@ paths:
       responses:
         "200":
           description: Research analysis retry state.
+  /api/research/analysis-tasks/process-next:
+    post:
+      summary: Claim one eligible research analysis task and call the AI statistics service.
+      responses:
+        "200":
+          description: Worker result with completed run or retry/dead-letter status.
   /api/research/cohorts/{cohortId}/exports:
     get:
       summary: List de-identified research export packages for a cohort.

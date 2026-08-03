@@ -29,6 +29,7 @@ import com.hospitalai.core.model.Dto.KnowledgeSubmissionSummary;
 import com.hospitalai.core.model.Dto.ResearchAnalysisRunRequest;
 import com.hospitalai.core.model.Dto.ResearchAnalysisRunSummary;
 import com.hospitalai.core.model.Dto.ResearchAnalysisTaskSummary;
+import com.hospitalai.core.model.Dto.ResearchAnalysisWorkerResponse;
 import com.hospitalai.core.model.Dto.ResearchArtifactContent;
 import com.hospitalai.core.model.Dto.ResearchCohortRequest;
 import com.hospitalai.core.model.Dto.ResearchCohortSummary;
@@ -54,6 +55,7 @@ import com.hospitalai.core.service.DoseCalculationService;
 import com.hospitalai.core.service.EvidenceGovernanceService;
 import com.hospitalai.core.service.HisSnapshotImportService;
 import com.hospitalai.core.service.RecommendationService;
+import com.hospitalai.core.service.ResearchAnalysisWorkerService;
 import com.hospitalai.core.service.RuleGovernanceService;
 import java.util.List;
 import java.util.Map;
@@ -72,14 +74,16 @@ public class WorkbenchController {
   private final RuleGovernanceService ruleGovernanceService;
   private final DoseCalculationService doseCalculationService;
   private final EvidenceGovernanceService evidenceGovernanceService;
+  private final ResearchAnalysisWorkerService researchAnalysisWorkerService;
 
-  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService, EvidenceGovernanceService evidenceGovernanceService) {
+  public WorkbenchController(RecommendationService service, WorkbenchRepository repository, HisSnapshotImportService importService, RuleGovernanceService ruleGovernanceService, DoseCalculationService doseCalculationService, EvidenceGovernanceService evidenceGovernanceService, ResearchAnalysisWorkerService researchAnalysisWorkerService) {
     this.service = service;
     this.repository = repository;
     this.importService = importService;
     this.ruleGovernanceService = ruleGovernanceService;
     this.doseCalculationService = doseCalculationService;
     this.evidenceGovernanceService = evidenceGovernanceService;
+    this.researchAnalysisWorkerService = researchAnalysisWorkerService;
   }
 
   @GetMapping("/worklist")
@@ -336,6 +340,11 @@ public class WorkbenchController {
     var task = repository.markResearchAnalysisTaskFailure(taskId, message);
     repository.audit("research_worker", "RESEARCH_ANALYSIS_TASK_FAILED", taskId, message);
     return task;
+  }
+
+  @PostMapping("/research/analysis-tasks/process-next")
+  public ResearchAnalysisWorkerResponse processNextAnalysisTask() {
+    return researchAnalysisWorkerService.processNext();
   }
 
   @PostMapping("/research/cohorts/{cohortId}/analysis-runs")

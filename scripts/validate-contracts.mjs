@@ -43,6 +43,7 @@ const requiredCorePaths = [
   '/api/research/cohorts/{cohortId}/analysis-runs',
   '/api/research/cohorts/{cohortId}/analysis-tasks',
   '/api/research/analysis-tasks/{taskId}/mark-failed',
+  '/api/research/analysis-tasks/process-next',
   '/api/research/cohorts/{cohortId}/exports',
   '/api/research/artifacts',
   '/api/research/cohorts/{cohortId}/reports',

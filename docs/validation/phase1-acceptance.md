@@ -350,5 +350,37 @@ New evidence:
 
 Remaining M4/M5 gaps:
 
-- Background Java Worker lease/claim loop and live invocation of the FastAPI statistics endpoint are still pending.
+- Background Java Worker schedule loop and stricter lease ownership are still pending; explicit Worker HTTP invocation of the FastAPI statistics endpoint is now covered below.
 - Artifact download authorization, formal knowledge UI, ADR escalation, security hardening and operations gates remain for later milestones.
+
+## 2026-08-03 M4 Java Worker To AI Statistics Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 17 passed, 0 failed.
+- Contract validation: passed.
+- Python: 5 passed, 0 failed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `POST /api/research/analysis-tasks/process-next` claims one eligible queued/retry task, builds a de-identified aggregate snapshot and calls `AI_SERVICE_BASE_URL/v1/research/statistics/run` over HTTP.
+- Java integration test starts a local HTTP server at the AI statistics path, enqueues a frozen cohort task, runs `process-next`, and verifies the worker response contains the AI-returned `inputHash`.
+- Worker completion writes `research_analysis_run`, marks the task `completed`, persists a JSON artifact containing `aiOutputHash` and the AI result summary, and verifies artifact SHA-256 by `GET /api/research/artifacts`.
+- Failure path remains covered by `mark-failed`, which increments attempt count and schedules retry/dead-letter.
+
+Remaining M4/M5 gaps:
+
+- Automatic scheduled worker loop, stricter lease ownership fields and concurrent claim hardening are still pending.
+- Artifact authorization, formal knowledge UI, ADR escalation and M5 operational gates remain pending.

@@ -821,6 +821,77 @@ public class WorkbenchRepository {
     return researchAnalysisTask(taskId);
   }
 
+  public ResearchAnalysisTaskSummary claimNextResearchAnalysisTask() {
+    var tasks = jdbc.query("""
+        SELECT task_id, cohort_id, status, script_version, statistic_plan, attempt_count, next_attempt_at, last_error, created_at, updated_at
+        FROM research_analysis_task
+        WHERE status IN ('queued', 'retry_scheduled') AND next_attempt_at <= ?
+        ORDER BY created_at
+        LIMIT 1
+        """, this::mapResearchAnalysisTask, Instant.now());
+    if (tasks.isEmpty()) {
+      return null;
+    }
+    ResearchAnalysisTaskSummary task = tasks.get(0);
+    Instant now = Instant.now();
+    jdbc.update("""
+        UPDATE research_analysis_task
+        SET status = 'processing', attempt_count = ?, updated_at = ?
+        WHERE task_id = ?
+        """, task.attemptCount() + 1, now, task.taskId());
+    return researchAnalysisTask(task.taskId());
+  }
+
+  public ResearchAnalysisRunSummary completeResearchAnalysisTask(String taskId, String inputHash, String aiOutputHash, String resultSummary) {
+    ResearchAnalysisTaskSummary task = researchAnalysisTask(taskId);
+    String runId = "ANR-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    String artifactUri = artifactUri(task.cohortId(), "analysis", runId + ".json");
+    String artifactContent = """
+        {
+          "artifactType": "research_analysis_run",
+          "cohortId": "%s",
+          "taskId": "%s",
+          "runId": "%s",
+          "scriptVersion": "%s",
+          "statisticPlan": "%s",
+          "inputHash": "%s",
+          "aiOutputHash": "%s",
+          "resultSummary": %s
+        }
+        """.formatted(task.cohortId(), taskId, runId, escapeJson(task.scriptVersion()), escapeJson(task.statisticPlan()), inputHash, aiOutputHash, resultSummary);
+    String artifactHash = sha256(artifactContent);
+    writeArtifact(artifactUri, artifactContent);
+    jdbc.update("""
+        INSERT INTO research_analysis_run(run_id, cohort_id, status, script_version, statistic_plan, input_hash, output_hash, result_summary, artifact_uri, started_at, completed_at)
+        VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
+        """, runId, task.cohortId(), task.scriptVersion(), task.statisticPlan(), inputHash, artifactHash, resultSummary, artifactUri, task.updatedAt(), now);
+    jdbc.update("""
+        UPDATE research_analysis_task
+        SET status = 'completed', last_error = NULL, updated_at = ?
+        WHERE task_id = ?
+        """, now, taskId);
+    return new ResearchAnalysisRunSummary(runId, task.cohortId(), "completed", task.scriptVersion(), task.statisticPlan(), inputHash, artifactHash, resultSummary, artifactUri, task.updatedAt(), now);
+  }
+
+  public Map<String, Object> researchAnalysisSnapshot(ResearchAnalysisTaskSummary task) {
+    var cohort = cohort(task.cohortId());
+    var latestQuality = latestQualityCheck(task.cohortId());
+    int subjects = jdbc.queryForObject("SELECT COUNT(DISTINCT patient_id) FROM encounters WHERE diagnosis LIKE ?", Integer.class, "%" + cohort.diseaseScope() + "%");
+    int feedbackCount = jdbc.queryForObject("SELECT COUNT(*) FROM medication_feedback", Integer.class);
+    int outcomeCount = jdbc.queryForObject("SELECT COUNT(*) FROM discharge_outcome", Integer.class);
+    var variables = jdbc.queryForList("SELECT name FROM research_variable WHERE cohort_id = ? ORDER BY variable_id", String.class, task.cohortId());
+    var snapshot = new java.util.LinkedHashMap<String, Object>();
+    snapshot.put("cohortId", task.cohortId());
+    snapshot.put("scriptVersion", task.scriptVersion());
+    snapshot.put("totalSubjects", subjects);
+    snapshot.put("variables", variables);
+    snapshot.put("feedbackRecords", feedbackCount);
+    snapshot.put("dischargeOutcomes", outcomeCount);
+    snapshot.put("missingSummary", latestQuality.missingSummary());
+    return snapshot;
+  }
+
   public List<ResearchAnalysisRunSummary> analysisRuns(String cohortId) {
     return jdbc.query("""
         SELECT run_id, cohort_id, status, script_version, statistic_plan, input_hash, output_hash, result_summary, artifact_uri, started_at, completed_at

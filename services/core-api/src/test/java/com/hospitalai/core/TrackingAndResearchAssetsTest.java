@@ -9,20 +9,74 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("h2-demo")
 class TrackingAndResearchAssetsTest {
+  static HttpServer aiServer;
+
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
+
+  @DynamicPropertySource
+  static void aiServiceProperties(DynamicPropertyRegistry registry) {
+    registry.add("ai.service-base-url", TrackingAndResearchAssetsTest::ensureAiServer);
+  }
+
+  @AfterAll
+  static void stopAiServer() {
+    if (aiServer != null) {
+      aiServer.stop(0);
+    }
+  }
+
+  static String ensureAiServer() {
+    try {
+      if (aiServer == null) {
+        aiServer = HttpServer.create(new InetSocketAddress(0), 0);
+        aiServer.createContext("/v1/research/statistics/run", exchange -> {
+          byte[] ignored = exchange.getRequestBody().readAllBytes();
+          byte[] body = """
+              {
+                "status": "completed",
+                "scriptVersion": "fixed-cap-statistics.v1",
+                "inputHash": "worker-input-hash",
+                "outputHash": "worker-ai-output-hash",
+                "resultSummary": {
+                  "subjects": 5,
+                  "variableCount": 1,
+                  "feedbackRecords": 0,
+                  "dischargeOutcomes": 0,
+                  "workerCalled": true
+                }
+              }
+              """.getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+        aiServer.start();
+      }
+      return "http://localhost:" + aiServer.getAddress().getPort();
+    } catch (Exception ex) {
+      throw new IllegalStateException("failed to start local AI test server", ex);
+    }
+  }
 
   @Test
   void recordsMedicationTimelineFeedbackAndDischargeOutcome() throws Exception {
@@ -214,6 +268,33 @@ class TrackingAndResearchAssetsTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content", containsString("research_analysis_run")))
         .andExpect(jsonPath("$.sha256", is(mapper.readTree(analysisJson).get("outputHash").asText())));
+
+    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/analysis-tasks")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "scriptVersion": "fixed-cap-statistics.v1",
+                  "statisticPlan": "CAP 队列描述性统计",
+                  "runner": "python-worker"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("queued")));
+
+    String workerJson = mvc.perform(post("/api/research/analysis-tasks/process-next"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("completed")))
+        .andExpect(jsonPath("$.run.inputHash", is("worker-input-hash")))
+        .andExpect(jsonPath("$.run.resultSummary", containsString("workerCalled")))
+        .andReturn().getResponse().getContentAsString();
+    String workerArtifactUri = mapper.readTree(workerJson).get("run").get("artifactUri").asText();
+    String workerOutputHash = mapper.readTree(workerJson).get("run").get("outputHash").asText();
+
+    mvc.perform(get("/api/research/artifacts").param("uri", workerArtifactUri))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", containsString("worker-ai-output-hash")))
+        .andExpect(jsonPath("$.content", containsString("workerCalled")))
+        .andExpect(jsonPath("$.sha256", is(workerOutputHash)));
 
     String exportJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/exports")
             .contentType(MediaType.APPLICATION_JSON)

@@ -53,6 +53,7 @@ public final class Dto {
   public record ResearchAnalysisRunRequest(String scriptVersion, String statisticPlan, String runner) {}
   public record ResearchAnalysisRunSummary(String runId, String cohortId, String status, String scriptVersion, String statisticPlan, String inputHash, String outputHash, String resultSummary, String artifactUri, Instant startedAt, Instant completedAt) {}
   public record ResearchAnalysisTaskSummary(String taskId, String cohortId, String status, String scriptVersion, String statisticPlan, int attemptCount, Instant nextAttemptAt, String lastError, Instant createdAt, Instant updatedAt) {}
+  public record ResearchAnalysisWorkerResponse(String status, ResearchAnalysisTaskSummary task, ResearchAnalysisRunSummary run, String message) {}
   public record ResearchExportRequest(String requestedBy, String purpose) {}
   public record ResearchExportSummary(String exportId, String cohortId, String status, int rowCount, String artifactUri, String dataHash, String requestedBy, String purpose, Instant createdAt) {}
   public record ResearchArtifactContent(String artifactUri, String sha256, String content) {}
