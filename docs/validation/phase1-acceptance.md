@@ -216,7 +216,34 @@ New evidence:
 
 Remaining M3 gaps:
 
-- Recommendation expiration on source data version change is still pending.
-- Structured field-level medication diff is still pending.
-- Dedicated cross-department collaboration task model is still pending.
-- Real HIS adapter network write, retry and dead-letter handling are still pending.
+- More detailed field-level medication diff beyond regimen text is still pending.
+- Pharmacist and collaboration workbench UI is still pending.
+- Real HIS adapter network write and background Worker scheduling are still pending.
+
+## 2026-08-03 M3 Completion Skeleton Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+npm --prefix apps/web run test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 14 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Python: 4 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- Repeating the same recommendation decision reuses the same prescription draft idempotency key.
+- Cross-department active medication creates a dedicated collaboration task, and `/api/collaboration/tasks/{taskId}/resolve` resolves it.
+- Draft write task failures can be recorded through `/api/prescription-draft-write-tasks/{taskId}/mark-failed` and move to retry/dead-letter state after attempts.
+- HIS callback marks the prescription draft and draft write task as completed.
+- Importing a newer encounter data version expires existing recommendation snapshots for that encounter.

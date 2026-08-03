@@ -174,6 +174,11 @@ public class WorkbenchRepository {
   }
 
   public void upsertRecommendationSnapshot(String recommendationId, String encounterId, String patientId, int dataVersion, String status, int candidateCount, int blockingCount, int strongAlertCount) {
+    jdbc.update("""
+        UPDATE recommendation_snapshot
+        SET status = 'expired', expired_at = ?
+        WHERE encounter_id = ? AND recommendation_id <> ? AND data_version < ? AND status <> 'expired'
+        """, Instant.now(), encounterId, recommendationId, dataVersion);
     if (exists("recommendation_snapshot", "recommendation_id", recommendationId)) {
       jdbc.update("""
           UPDATE recommendation_snapshot
@@ -218,6 +223,50 @@ public class WorkbenchRepository {
         VALUES (?, ?, ?, ?, 'pending', ?, ?, 'pharmacist', ?)
         """, reviewId, recommendationId, decisionId, encounterId, priority, reason, Instant.now());
     return reviewId;
+  }
+
+  public String createCollaborationTask(String recommendationId, String encounterId, String sourceDepartment, String targetDepartment, String reason) {
+    String taskId = "COL-" + UUID.randomUUID();
+    jdbc.update("""
+        INSERT INTO collaboration_task(task_id, recommendation_id, encounter_id, source_department, target_department, status, reason, created_at)
+        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+        """, taskId, recommendationId, encounterId, sourceDepartment, targetDepartment, reason, Instant.now());
+    return taskId;
+  }
+
+  public List<CollaborationTaskSummary> collaborationTasks(String status) {
+    String sql = """
+        SELECT task_id, recommendation_id, encounter_id, source_department, target_department, status, reason, created_at, resolved_at, resolution
+        FROM collaboration_task
+        """;
+    Object[] args = new Object[] {};
+    if (status != null && !status.isBlank()) {
+      sql += " WHERE status = ?";
+      args = new Object[] { status };
+    }
+    sql += " ORDER BY created_at DESC";
+    return jdbc.query(sql, (rs, row) -> new CollaborationTaskSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getTimestamp(8).toInstant(),
+        rs.getTimestamp(9) == null ? null : rs.getTimestamp(9).toInstant(),
+        rs.getString(10)), args);
+  }
+
+  public void resolveCollaborationTask(String taskId, String resolution) {
+    int updated = jdbc.update("""
+        UPDATE collaboration_task
+        SET status = 'resolved', resolved_at = ?, resolution = ?
+        WHERE task_id = ? AND status = 'pending'
+        """, Instant.now(), resolution, taskId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("pending collaboration task not found: " + taskId);
+    }
   }
 
   public List<PharmacistReviewTaskSummary> pharmacistReviews(String status) {
@@ -357,11 +406,11 @@ public class WorkbenchRepository {
     return text.replaceAll("[，。；、\\s]+", ",");
   }
 
-  public void insertDecision(String decisionId, String recommendationId, String encounterId, DecisionRequest request, String actor) {
+  public void insertDecision(String decisionId, String recommendationId, String encounterId, DecisionRequest request, String actor, String modifiedDiffJson) {
     jdbc.update("""
-        INSERT INTO recommendation_decision(decision_id, recommendation_id, encounter_id, candidate_id, action, original_version, modified_regimen, reason, actor, created_at)
-        VALUES (?, ?, ?, ?, ?, 'candidate.v1', ?, ?, ?, ?)
-        """, decisionId, recommendationId, encounterId, request.candidateId(), request.action(), request.modifiedRegimen(), request.reason(), actor, Instant.now());
+        INSERT INTO recommendation_decision(decision_id, recommendation_id, encounter_id, candidate_id, action, original_version, modified_regimen, modified_diff_json, reason, actor, created_at)
+        VALUES (?, ?, ?, ?, ?, 'candidate.v1', ?, ?, ?, ?, ?)
+        """, decisionId, recommendationId, encounterId, request.candidateId(), request.action(), request.modifiedRegimen(), modifiedDiffJson, request.reason(), actor, Instant.now());
   }
 
   public String insertDraft(String decisionId, String encounterId, String idempotencyKey) {
@@ -372,7 +421,15 @@ public class WorkbenchRepository {
     var draftId = "DRAFT-" + UUID.randomUUID();
     jdbc.update("INSERT INTO prescription_draft(draft_id, decision_id, encounter_id, status, idempotency_key, created_at) VALUES (?, ?, ?, 'draft_written', ?, ?)",
         draftId, decisionId, encounterId, idempotencyKey, Instant.now());
+    createDraftWriteTask(draftId);
     return draftId;
+  }
+
+  public void createDraftWriteTask(String draftId) {
+    jdbc.update("""
+        INSERT INTO prescription_draft_write_task(task_id, draft_id, status, attempt_count, next_attempt_at, created_at, updated_at)
+        VALUES (?, ?, 'pending', 0, ?, ?, ?)
+        """, "DWT-" + UUID.randomUUID(), draftId, Instant.now(), Instant.now(), Instant.now());
   }
 
   public Map<String, Object> draftByIdempotencyKey(String idempotencyKey) {
@@ -404,6 +461,50 @@ public class WorkbenchRepository {
     if (updated == 0) {
       throw new IllegalArgumentException("prescription draft not found: " + draftId);
     }
+  }
+
+  public List<PrescriptionDraftWriteTaskSummary> draftWriteTasks(String status) {
+    String sql = """
+        SELECT task_id, draft_id, status, attempt_count, next_attempt_at, last_error, updated_at
+        FROM prescription_draft_write_task
+        """;
+    Object[] args = new Object[] {};
+    if (status != null && !status.isBlank()) {
+      sql += " WHERE status = ?";
+      args = new Object[] { status };
+    }
+    sql += " ORDER BY updated_at DESC";
+    return jdbc.query(sql, (rs, row) -> new PrescriptionDraftWriteTaskSummary(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getInt(4),
+        rs.getTimestamp(5).toInstant(),
+        rs.getString(6),
+        rs.getTimestamp(7).toInstant()), args);
+  }
+
+  public void markDraftWriteTaskFailure(String taskId, String errorMessage) {
+    int updated = jdbc.update("""
+        UPDATE prescription_draft_write_task
+        SET status = CASE WHEN attempt_count + 1 >= 3 THEN 'dead_letter' ELSE 'retry_waiting' END,
+            attempt_count = attempt_count + 1,
+            next_attempt_at = ?,
+            last_error = ?,
+            updated_at = ?
+        WHERE task_id = ?
+        """, Instant.now().plusSeconds(60), errorMessage, Instant.now(), taskId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("draft write task not found: " + taskId);
+    }
+  }
+
+  public void markDraftWriteTaskWritten(String draftId) {
+    jdbc.update("""
+        UPDATE prescription_draft_write_task
+        SET status = 'written', updated_at = ?
+        WHERE draft_id = ? AND status <> 'written'
+        """, Instant.now(), draftId);
   }
 
   public void audit(String actor, String action, String objectId, String detail) {
@@ -447,6 +548,9 @@ public class WorkbenchRepository {
     if (existingVersion != null && existingVersion > dataVersion) {
       return false;
     }
+    if (existingVersion != null && dataVersion > existingVersion) {
+      expireRecommendationsForEncounter(encounterId, "source data version changed from " + existingVersion + " to " + dataVersion);
+    }
     if (existingVersion != null) {
       jdbc.update("""
           UPDATE encounters
@@ -460,6 +564,15 @@ public class WorkbenchRepository {
           """, encounterId, patientId, department, diagnosis, scenario, dataVersion, Instant.now());
     }
     return true;
+  }
+
+  public void expireRecommendationsForEncounter(String encounterId, String reason) {
+    jdbc.update("""
+        UPDATE recommendation_snapshot
+        SET status = 'expired', expired_at = ?
+        WHERE encounter_id = ? AND status <> 'expired'
+        """, Instant.now(), encounterId);
+    audit("system", "RECOMMENDATION_EXPIRED", encounterId, reason);
   }
 
   public void upsertDrugCatalog(String drugCode, String name, String pharmacologyClass, String status) {
@@ -519,6 +632,8 @@ public class WorkbenchRepository {
     snapshot.put("recommendationSnapshotCount", jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_snapshot", Integer.class));
     snapshot.put("latestDrafts", jdbc.queryForList("SELECT draft_id, status, his_status, encounter_id FROM prescription_draft ORDER BY created_at DESC LIMIT 5"));
     snapshot.put("latestReviews", jdbc.queryForList("SELECT review_id, status, priority, reason FROM pharmacist_review_task ORDER BY created_at DESC LIMIT 5"));
+    snapshot.put("latestCollaborations", jdbc.queryForList("SELECT task_id, status, target_department, reason FROM collaboration_task ORDER BY created_at DESC LIMIT 5"));
+    snapshot.put("latestDraftWriteTasks", jdbc.queryForList("SELECT task_id, draft_id, status, attempt_count FROM prescription_draft_write_task ORDER BY updated_at DESC LIMIT 5"));
     snapshot.put("latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"));
     snapshot.put("latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5"));
     snapshot.put("latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5"));

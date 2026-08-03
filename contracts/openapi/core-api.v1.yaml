@@ -49,6 +49,18 @@ paths:
       responses:
         "200":
           description: Review resolution state.
+  /api/collaboration/tasks:
+    get:
+      summary: List cross-department collaboration tasks.
+      responses:
+        "200":
+          description: Collaboration task queue.
+  /api/collaboration/tasks/{taskId}/resolve:
+    post:
+      summary: Resolve a cross-department collaboration task.
+      responses:
+        "200":
+          description: Collaboration task resolution.
   /api/prescription-drafts/{draftId}:
     get:
       summary: Read prescription draft state.
@@ -61,6 +73,18 @@ paths:
       responses:
         "200":
           description: Updated prescription draft state.
+  /api/prescription-draft-write-tasks:
+    get:
+      summary: List reliable HIS draft write tasks.
+      responses:
+        "200":
+          description: Draft write task queue.
+  /api/prescription-draft-write-tasks/{taskId}/mark-failed:
+    post:
+      summary: Record a HIS adapter write failure and schedule retry or dead-letter.
+      responses:
+        "200":
+          description: Draft write retry state.
   /api/rules:
     get:
       summary: List clinical rules and rule cases.

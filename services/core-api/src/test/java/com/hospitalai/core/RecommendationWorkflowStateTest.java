@@ -64,6 +64,34 @@ class RecommendationWorkflowStateTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("resolved")));
 
+    String collaboration = mvc.perform(get("/api/collaboration/tasks").param("status", "pending"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].targetDepartment", hasItem("心内科")))
+        .andReturn().getResponse().getContentAsString();
+    String taskId = mapper.readTree(collaboration).get(0).get("taskId").asText();
+
+    mvc.perform(post("/api/collaboration/tasks/" + taskId + "/resolve")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "resolution": "心内科已确认当前有效用药，建议正式开方前调整或停用重复风险药品。" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("resolved")));
+
+    String writeTasks = mvc.perform(get("/api/prescription-draft-write-tasks").param("status", "pending"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].draftId", hasItem(draftId)))
+        .andReturn().getResponse().getContentAsString();
+    String writeTaskId = mapper.readTree(writeTasks).get(0).get("taskId").asText();
+
+    mvc.perform(post("/api/prescription-draft-write-tasks/" + writeTaskId + "/mark-failed")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "errorMessage": "HIS adapter timeout" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("retry_or_dead_letter_recorded")));
+
     mvc.perform(post("/api/prescription-drafts/" + draftId + "/callback")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
@@ -72,6 +100,77 @@ class RecommendationWorkflowStateTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("his_confirmed")))
         .andExpect(jsonPath("$.hisStatus", is("his_confirmed")));
+
+    mvc.perform(get("/api/prescription-draft-write-tasks"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].status", hasItem("written")));
+  }
+
+  @Test
+  void repeatedDecisionUsesSameDraftIdempotencyKey() throws Exception {
+    String first = mvc.perform(post("/api/recommendations/REC-E001-v3/decision")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "action": "adopt",
+                  "candidateId": "C-CEF-AZI",
+                  "reason": "第一次提交",
+                  "riskHandling": { "acknowledged": true }
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.draftStatus", is("draft_written")))
+        .andReturn().getResponse().getContentAsString();
+    String second = mvc.perform(post("/api/recommendations/REC-E001-v3/decision")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "action": "adopt",
+                  "candidateId": "C-CEF-AZI",
+                  "reason": "重复提交",
+                  "riskHandling": { "acknowledged": true }
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.draftStatus", is("draft_written")))
+        .andReturn().getResponse().getContentAsString();
+
+    String firstDraft = mapper.readTree(first).get("prescriptionDraftId").asText();
+    String secondDraft = mapper.readTree(second).get("prescriptionDraftId").asText();
+    org.assertj.core.api.Assertions.assertThat(secondDraft).isEqualTo(firstDraft);
+  }
+
+  @Test
+  void newerImportedEncounterVersionExpiresExistingRecommendation() throws Exception {
+    mvc.perform(get("/api/workbench/E001"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.recommendationId", is("REC-E001-v3")));
+
+    mvc.perform(post("/api/integration/his/snapshots/import")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "sourceSystem": "HIS_IMPORT_TEST",
+                  "sourceBatchId": "batch-e001-v9",
+                  "payload": {
+                    "schemaVersion": "his.snapshot.v1",
+                    "patients": [
+                      { "hisPatientId": "HIS-P001", "internalPatientId": "P001", "displayName": "合成患者A", "sex": "F", "age": 66 }
+                    ],
+                    "encounters": [
+                      { "encounterId": "E001", "patientId": "P001", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "scenario": "updated_version", "dataVersion": 9 }
+                    ],
+                    "drugCatalog": []
+                  }
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("applied")));
+
+    mvc.perform(get("/api/recommendations"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].recommendationId", hasItem("REC-E001-v3")))
+        .andExpect(jsonPath("$[*].status", hasItem("expired")));
   }
 
   @Test

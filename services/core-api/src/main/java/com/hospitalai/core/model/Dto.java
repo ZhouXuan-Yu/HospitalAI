@@ -33,8 +33,12 @@ public final class Dto {
   public record RecommendationSnapshotSummary(String recommendationId, String encounterId, String patientId, int dataVersion, String status, int candidateCount, int blockingCount, int strongAlertCount, Instant generatedAt, Instant expiredAt) {}
   public record PharmacistReviewTaskSummary(String reviewId, String recommendationId, String decisionId, String encounterId, String status, String priority, String reason, String assignedRole, Instant createdAt, Instant resolvedAt, String resolution) {}
   public record PharmacistReviewResolutionRequest(String resolution) {}
+  public record CollaborationTaskSummary(String taskId, String recommendationId, String encounterId, String sourceDepartment, String targetDepartment, String status, String reason, Instant createdAt, Instant resolvedAt, String resolution) {}
+  public record CollaborationResolutionRequest(String resolution) {}
   public record PrescriptionDraftCallbackRequest(String hisStatus, String hisMessage) {}
   public record PrescriptionDraftStatus(String draftId, String decisionId, String encounterId, String status, String hisStatus, String hisMessage, Instant callbackAt) {}
+  public record PrescriptionDraftWriteTaskSummary(String taskId, String draftId, String status, int attemptCount, Instant nextAttemptAt, String lastError, Instant updatedAt) {}
+  public record DraftRetryRequest(String errorMessage) {}
   public record SnapshotImportRequest(String sourceSystem, String sourceBatchId, Map<String, Object> payload) {}
   public record SnapshotImportResponse(String eventId, String status, String schemaVersion, int patientsUpserted, int encountersUpserted, int catalogItemsUpserted, int mappingsUpserted, List<String> warnings) {}
 }

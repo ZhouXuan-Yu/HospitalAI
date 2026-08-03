@@ -4,6 +4,9 @@ import com.hospitalai.core.model.Dto.DecisionRequest;
 import com.hospitalai.core.model.Dto.DecisionResponse;
 import com.hospitalai.core.model.Dto.DoseRequest;
 import com.hospitalai.core.model.Dto.DoseResponse;
+import com.hospitalai.core.model.Dto.CollaborationResolutionRequest;
+import com.hospitalai.core.model.Dto.CollaborationTaskSummary;
+import com.hospitalai.core.model.Dto.DraftRetryRequest;
 import com.hospitalai.core.model.Dto.EvidenceChunkSummary;
 import com.hospitalai.core.model.Dto.EvidenceDocumentRequest;
 import com.hospitalai.core.model.Dto.EvidenceDocumentSummary;
@@ -13,6 +16,7 @@ import com.hospitalai.core.model.Dto.PharmacistReviewResolutionRequest;
 import com.hospitalai.core.model.Dto.PharmacistReviewTaskSummary;
 import com.hospitalai.core.model.Dto.PrescriptionDraftCallbackRequest;
 import com.hospitalai.core.model.Dto.PrescriptionDraftStatus;
+import com.hospitalai.core.model.Dto.PrescriptionDraftWriteTaskSummary;
 import com.hospitalai.core.model.Dto.RecommendationSnapshotSummary;
 import com.hospitalai.core.model.Dto.RuleLifecycleResponse;
 import com.hospitalai.core.model.Dto.RuleUpsertRequest;
@@ -149,6 +153,21 @@ public class WorkbenchController {
     return Map.of("reviewId", reviewId, "status", "resolved");
   }
 
+  @GetMapping("/collaboration/tasks")
+  public List<CollaborationTaskSummary> collaborationTasks(@RequestParam(required = false) String status) {
+    return repository.collaborationTasks(status);
+  }
+
+  @PostMapping("/collaboration/tasks/{taskId}/resolve")
+  public Map<String, Object> resolveCollaborationTask(@PathVariable String taskId, @RequestBody CollaborationResolutionRequest request) {
+    if (request == null || request.resolution() == null || request.resolution().isBlank()) {
+      throw new IllegalArgumentException("resolution is required");
+    }
+    repository.resolveCollaborationTask(taskId, request.resolution());
+    repository.audit("department_collaboration_demo", "COLLABORATION_TASK_RESOLVED", taskId, request.resolution());
+    return Map.of("taskId", taskId, "status", "resolved");
+  }
+
   @GetMapping("/prescription-drafts/{draftId}")
   public PrescriptionDraftStatus prescriptionDraft(@PathVariable String draftId) {
     return repository.draft(draftId);
@@ -165,8 +184,24 @@ public class WorkbenchController {
       default -> "callback_received";
     };
     repository.updateDraftCallback(draftId, status, request.hisStatus(), request.hisMessage());
+    repository.markDraftWriteTaskWritten(draftId);
     repository.audit("his_adapter", "HIS_DRAFT_CALLBACK_RECEIVED", draftId, request.hisStatus());
     return repository.draft(draftId);
+  }
+
+  @GetMapping("/prescription-draft-write-tasks")
+  public List<PrescriptionDraftWriteTaskSummary> draftWriteTasks(@RequestParam(required = false) String status) {
+    return repository.draftWriteTasks(status);
+  }
+
+  @PostMapping("/prescription-draft-write-tasks/{taskId}/mark-failed")
+  public Map<String, Object> markDraftWriteTaskFailed(@PathVariable String taskId, @RequestBody(required = false) DraftRetryRequest request) {
+    String message = request == null || request.errorMessage() == null || request.errorMessage().isBlank()
+        ? "HIS adapter write failed"
+        : request.errorMessage();
+    repository.markDraftWriteTaskFailure(taskId, message);
+    repository.audit("his_adapter", "HIS_DRAFT_WRITE_FAILED", taskId, message);
+    return Map.of("taskId", taskId, "status", "retry_or_dead_letter_recorded");
   }
 
   @PostMapping("/integration/his/snapshots/import")

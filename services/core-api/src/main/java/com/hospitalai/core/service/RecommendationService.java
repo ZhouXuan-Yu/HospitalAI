@@ -69,7 +69,8 @@ public class RecommendationService {
       return new DecisionResponse("", request.action(), "", "blocked_by_hard_rule", "blocked", "", List.of("DECISION_BLOCKED"), true);
     }
     var decisionId = "DEC-" + UUID.randomUUID();
-    repo.insertDecision(decisionId, recommendationId, encounterId, request, actor);
+    String modifiedDiffJson = modifiedDiff(selected, request);
+    repo.insertDecision(decisionId, recommendationId, encounterId, request, actor, modifiedDiffJson);
     repo.audit(actor, "RECOMMENDATION_DECIDED", decisionId, request.action() + " candidate " + request.candidateId());
     var draftId = "";
     var draftStatus = "NO_DRAFT_FOR_REJECTION";
@@ -78,6 +79,15 @@ public class RecommendationService {
     if (!strongAlerts.isEmpty()) {
       reviewId = repo.createPharmacistReviewTask(recommendationId, decisionId, encounterId, "high", String.join("; ", strongAlerts));
       repo.audit(actor, "PHARMACIST_REVIEW_CREATED", reviewId, "strong alert review required");
+    }
+    var crossDepartmentOrders = repo.activeOrders(payload.patient().patientId()).stream()
+        .filter(order -> !String.valueOf(order.get("department")).equals(payload.encounter().department()))
+        .toList();
+    for (var order : crossDepartmentOrders) {
+      var taskId = repo.createCollaborationTask(recommendationId, encounterId, payload.encounter().department(),
+          String.valueOf(order.get("department")),
+          "当前推荐需与" + order.get("department") + "协同复核：" + order.get("drug_name"));
+      repo.audit(actor, "COLLABORATION_TASK_CREATED", taskId, "cross department medication review");
     }
     if (!"reject".equalsIgnoreCase(request.action())) {
       var idempotencyKey = "draft-" + recommendationId + "-" + request.candidateId() + "-" + request.action();
@@ -90,8 +100,28 @@ public class RecommendationService {
     var events = new ArrayList<String>();
     events.add("RECOMMENDATION_DECIDED");
     if (!reviewId.isBlank()) events.add("PHARMACIST_REVIEW_CREATED");
+    if (!crossDepartmentOrders.isEmpty()) events.add("COLLABORATION_TASK_CREATED");
     if (!draftId.isBlank()) events.add("HIS_DRAFT_WRITE_REQUESTED");
     return new DecisionResponse(decisionId, request.action(), draftId, draftStatus, recommendationStatus, reviewId, events, false);
+  }
+
+  private String modifiedDiff(CandidatePlan selected, DecisionRequest request) {
+    if (!"modify".equalsIgnoreCase(request.action())) {
+      return "{}";
+    }
+    var modified = request.modifiedRegimen() == null ? "" : request.modifiedRegimen();
+    try {
+      return mapper.writeValueAsString(Map.of(
+          "regimen", Map.of(
+              "before", selected.regimen(),
+              "after", modified,
+              "changed", !selected.regimen().equals(modified)
+          ),
+          "candidateId", selected.candidateId()
+      ));
+    } catch (Exception ex) {
+      return "{\"error\":\"diff serialization failed\"}";
+    }
   }
 
   List<SafetyAlert> evaluateRules(Encounter encounter, PatientProfile patient) {
