@@ -85,6 +85,90 @@ paths:
       responses:
         "200":
           description: Draft write retry state.
+  /api/patients/{patientId}/timeline:
+    get:
+      summary: List patient medication timeline events.
+      responses:
+        "200":
+          description: Patient medication timeline.
+    post:
+      summary: Record a patient medication timeline event.
+      responses:
+        "200":
+          description: Timeline event.
+  /api/patients/{patientId}/feedback:
+    get:
+      summary: List medication feedback for a patient.
+      responses:
+        "200":
+          description: Medication feedback list.
+    post:
+      summary: Record medication feedback.
+      responses:
+        "200":
+          description: Medication feedback.
+  /api/patients/{patientId}/outcomes:
+    get:
+      summary: List discharge outcomes for a patient.
+      responses:
+        "200":
+          description: Discharge outcomes.
+    post:
+      summary: Record discharge outcome.
+      responses:
+        "200":
+          description: Discharge outcome.
+  /api/research/cohorts:
+    get:
+      summary: List research cohorts.
+      responses:
+        "200":
+          description: Research cohorts.
+    post:
+      summary: Save a research cohort draft.
+      responses:
+        "200":
+          description: Research cohort.
+  /api/research/cohorts/{cohortId}/variables:
+    get:
+      summary: List research variable dictionary for a cohort.
+      responses:
+        "200":
+          description: Research variables.
+    post:
+      summary: Save a research variable definition.
+      responses:
+        "200":
+          description: Research variable.
+  /api/research/cohorts/{cohortId}/quality-check:
+    post:
+      summary: Run research dataset quality checks.
+      responses:
+        "200":
+          description: Research quality check.
+  /api/research/cohorts/{cohortId}/freeze:
+    post:
+      summary: Freeze a research cohort version.
+      responses:
+        "200":
+          description: Frozen research cohort.
+  /api/research/cohorts/{cohortId}/reports:
+    get:
+      summary: List report drafts for a cohort.
+      responses:
+        "200":
+          description: Report drafts.
+    post:
+      summary: Create an auditable report draft for a frozen cohort.
+      responses:
+        "200":
+          description: Report draft.
+  /api/research/reports/{reportId}/review:
+    post:
+      summary: Mark a research report draft as reviewed.
+      responses:
+        "200":
+          description: Reviewed report draft.
   /api/rules:
     get:
       summary: List clinical rules and rule cases.

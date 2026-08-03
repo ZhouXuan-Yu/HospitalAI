@@ -6,6 +6,8 @@ import com.hospitalai.core.model.Dto.DoseRequest;
 import com.hospitalai.core.model.Dto.DoseResponse;
 import com.hospitalai.core.model.Dto.CollaborationResolutionRequest;
 import com.hospitalai.core.model.Dto.CollaborationTaskSummary;
+import com.hospitalai.core.model.Dto.DischargeOutcomeRequest;
+import com.hospitalai.core.model.Dto.DischargeOutcomeSummary;
 import com.hospitalai.core.model.Dto.DraftRetryRequest;
 import com.hospitalai.core.model.Dto.EvidenceChunkSummary;
 import com.hospitalai.core.model.Dto.EvidenceDocumentRequest;
@@ -17,7 +19,16 @@ import com.hospitalai.core.model.Dto.PharmacistReviewTaskSummary;
 import com.hospitalai.core.model.Dto.PrescriptionDraftCallbackRequest;
 import com.hospitalai.core.model.Dto.PrescriptionDraftStatus;
 import com.hospitalai.core.model.Dto.PrescriptionDraftWriteTaskSummary;
+import com.hospitalai.core.model.Dto.MedicationFeedbackRequest;
+import com.hospitalai.core.model.Dto.MedicationFeedbackSummary;
 import com.hospitalai.core.model.Dto.RecommendationSnapshotSummary;
+import com.hospitalai.core.model.Dto.ResearchCohortRequest;
+import com.hospitalai.core.model.Dto.ResearchCohortSummary;
+import com.hospitalai.core.model.Dto.ResearchQualityCheckSummary;
+import com.hospitalai.core.model.Dto.ResearchReportDraftSummary;
+import com.hospitalai.core.model.Dto.ResearchReportReviewRequest;
+import com.hospitalai.core.model.Dto.ResearchVariableRequest;
+import com.hospitalai.core.model.Dto.ResearchVariableSummary;
 import com.hospitalai.core.model.Dto.RuleLifecycleResponse;
 import com.hospitalai.core.model.Dto.RuleUpsertRequest;
 import com.hospitalai.core.model.Dto.SnapshotImportRequest;
@@ -25,6 +36,8 @@ import com.hospitalai.core.model.Dto.SnapshotImportResponse;
 import com.hospitalai.core.model.Dto.WorkbenchPayload;
 import com.hospitalai.core.model.Dto.WorklistItem;
 import com.hospitalai.core.model.Dto.RuleGovernancePayload;
+import com.hospitalai.core.model.Dto.TimelineEventRequest;
+import com.hospitalai.core.model.Dto.TimelineEventSummary;
 import com.hospitalai.core.repository.WorkbenchRepository;
 import com.hospitalai.core.service.DoseCalculationService;
 import com.hospitalai.core.service.EvidenceGovernanceService;
@@ -202,6 +215,108 @@ public class WorkbenchController {
     repository.markDraftWriteTaskFailure(taskId, message);
     repository.audit("his_adapter", "HIS_DRAFT_WRITE_FAILED", taskId, message);
     return Map.of("taskId", taskId, "status", "retry_or_dead_letter_recorded");
+  }
+
+  @GetMapping("/patients/{patientId}/timeline")
+  public List<TimelineEventSummary> timeline(@PathVariable String patientId) {
+    return repository.timeline(patientId);
+  }
+
+  @PostMapping("/patients/{patientId}/timeline")
+  public TimelineEventSummary addTimelineEvent(@PathVariable String patientId, @RequestBody TimelineEventRequest request) {
+    TimelineEventRequest normalized = new TimelineEventRequest(patientId, request.encounterId(), request.eventType(), request.drugCode(), request.drugName(), request.sourceSystem(), request.sourceId(), request.detail());
+    var event = repository.insertTimelineEvent(normalized);
+    repository.audit("tracking_demo", "TIMELINE_EVENT_RECORDED", event.eventId(), event.eventType());
+    return event;
+  }
+
+  @GetMapping("/patients/{patientId}/feedback")
+  public List<MedicationFeedbackSummary> feedback(@PathVariable String patientId) {
+    return repository.feedback(patientId);
+  }
+
+  @PostMapping("/patients/{patientId}/feedback")
+  public MedicationFeedbackSummary addFeedback(@PathVariable String patientId, @RequestBody MedicationFeedbackRequest request) {
+    MedicationFeedbackRequest normalized = new MedicationFeedbackRequest(patientId, request.encounterId(), request.drugCode(), request.effectiveness(), request.adverseSignal(), request.reporterRole(), request.note());
+    var feedback = repository.insertFeedback(normalized);
+    repository.audit("tracking_demo", "MEDICATION_FEEDBACK_RECORDED", feedback.feedbackId(), feedback.adverseSignal());
+    if (!"none".equalsIgnoreCase(feedback.adverseSignal())) {
+      repository.insertTimelineEvent(new TimelineEventRequest(patientId, request.encounterId(), "adverse_signal", request.drugCode(), "", "HospitalAI", feedback.feedbackId(), feedback.note()));
+    }
+    return feedback;
+  }
+
+  @GetMapping("/patients/{patientId}/outcomes")
+  public List<DischargeOutcomeSummary> dischargeOutcomes(@PathVariable String patientId) {
+    return repository.dischargeOutcomes(patientId);
+  }
+
+  @PostMapping("/patients/{patientId}/outcomes")
+  public DischargeOutcomeSummary addDischargeOutcome(@PathVariable String patientId, @RequestBody DischargeOutcomeRequest request) {
+    DischargeOutcomeRequest normalized = new DischargeOutcomeRequest(patientId, request.encounterId(), request.outcomeStatus(), request.readmissionRisk(), request.followupRequired(), request.note());
+    var outcome = repository.insertDischargeOutcome(normalized);
+    repository.audit("tracking_demo", "DISCHARGE_OUTCOME_RECORDED", outcome.outcomeId(), outcome.outcomeStatus());
+    return outcome;
+  }
+
+  @GetMapping("/research/cohorts")
+  public List<ResearchCohortSummary> cohorts() {
+    return repository.cohorts();
+  }
+
+  @PostMapping("/research/cohorts")
+  public ResearchCohortSummary saveCohort(@RequestBody ResearchCohortRequest request) {
+    var cohort = repository.upsertCohort(request);
+    repository.audit("research_demo", "RESEARCH_COHORT_SAVED", cohort.cohortId(), cohort.name());
+    return cohort;
+  }
+
+  @GetMapping("/research/cohorts/{cohortId}/variables")
+  public List<ResearchVariableSummary> variables(@PathVariable String cohortId) {
+    return repository.variables(cohortId);
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/variables")
+  public ResearchVariableSummary saveVariable(@PathVariable String cohortId, @RequestBody ResearchVariableRequest request) {
+    var variable = repository.upsertVariable(cohortId, request);
+    repository.audit("research_demo", "RESEARCH_VARIABLE_SAVED", variable.variableId(), variable.name());
+    return variable;
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/quality-check")
+  public ResearchQualityCheckSummary runQualityCheck(@PathVariable String cohortId) {
+    var check = repository.runQualityCheck(cohortId);
+    repository.audit("research_demo", "RESEARCH_QUALITY_CHECKED", check.checkId(), check.status());
+    return check;
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/freeze")
+  public ResearchCohortSummary freezeCohort(@PathVariable String cohortId) {
+    repository.freezeCohort(cohortId);
+    repository.audit("research_demo", "RESEARCH_COHORT_FROZEN", cohortId, "frozen");
+    return repository.cohort(cohortId);
+  }
+
+  @GetMapping("/research/cohorts/{cohortId}/reports")
+  public List<ResearchReportDraftSummary> reportDrafts(@PathVariable String cohortId) {
+    return repository.reportDrafts(cohortId);
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/reports")
+  public ResearchReportDraftSummary createReportDraft(@PathVariable String cohortId) {
+    var report = repository.createReportDraft(cohortId);
+    repository.audit("research_demo", "RESEARCH_REPORT_DRAFT_CREATED", report.reportId(), report.title());
+    return report;
+  }
+
+  @PostMapping("/research/reports/{reportId}/review")
+  public ResearchReportDraftSummary reviewReport(@PathVariable String reportId, @RequestBody ResearchReportReviewRequest request) {
+    if (request == null || request.reviewNote() == null || request.reviewNote().isBlank()) {
+      throw new IllegalArgumentException("reviewNote is required");
+    }
+    var report = repository.reviewReport(reportId, request.reviewNote());
+    repository.audit("research_demo", "RESEARCH_REPORT_REVIEWED", reportId, request.reviewNote());
+    return report;
   }
 
   @PostMapping("/integration/his/snapshots/import")

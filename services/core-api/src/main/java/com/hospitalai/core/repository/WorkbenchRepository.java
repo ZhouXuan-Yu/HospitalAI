@@ -507,6 +507,230 @@ public class WorkbenchRepository {
         """, Instant.now(), draftId);
   }
 
+  public TimelineEventSummary insertTimelineEvent(TimelineEventRequest request) {
+    String eventId = "TLE-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO medication_timeline_event(event_id, patient_id, encounter_id, event_type, drug_code, drug_name, event_time, source_system, source_id, detail)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, eventId, request.patientId(), request.encounterId(), request.eventType(), request.drugCode(), request.drugName(), now, request.sourceSystem(), request.sourceId(), request.detail());
+    return new TimelineEventSummary(eventId, request.patientId(), request.encounterId(), request.eventType(), request.drugCode(), request.drugName(), now, request.sourceSystem(), request.sourceId(), request.detail());
+  }
+
+  public List<TimelineEventSummary> timeline(String patientId) {
+    return jdbc.query("""
+        SELECT event_id, patient_id, encounter_id, event_type, drug_code, drug_name, event_time, source_system, source_id, detail
+        FROM medication_timeline_event
+        WHERE patient_id = ?
+        ORDER BY event_time DESC
+        """, (rs, row) -> new TimelineEventSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getTimestamp(7).toInstant(), rs.getString(8), rs.getString(9), rs.getString(10)), patientId);
+  }
+
+  public MedicationFeedbackSummary insertFeedback(MedicationFeedbackRequest request) {
+    String feedbackId = "FDB-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO medication_feedback(feedback_id, patient_id, encounter_id, drug_code, effectiveness, adverse_signal, reporter_role, note, recorded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, feedbackId, request.patientId(), request.encounterId(), request.drugCode(), request.effectiveness(), request.adverseSignal(), request.reporterRole(), request.note(), now);
+    return new MedicationFeedbackSummary(feedbackId, request.patientId(), request.encounterId(), request.drugCode(), request.effectiveness(), request.adverseSignal(), request.reporterRole(), request.note(), now);
+  }
+
+  public List<MedicationFeedbackSummary> feedback(String patientId) {
+    return jdbc.query("""
+        SELECT feedback_id, patient_id, encounter_id, drug_code, effectiveness, adverse_signal, reporter_role, note, recorded_at
+        FROM medication_feedback
+        WHERE patient_id = ?
+        ORDER BY recorded_at DESC
+        """, (rs, row) -> new MedicationFeedbackSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getString(7), rs.getString(8), rs.getTimestamp(9).toInstant()), patientId);
+  }
+
+  public DischargeOutcomeSummary insertDischargeOutcome(DischargeOutcomeRequest request) {
+    String outcomeId = "OUT-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    jdbc.update("""
+        INSERT INTO discharge_outcome(outcome_id, patient_id, encounter_id, outcome_status, readmission_risk, followup_required, note, recorded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, outcomeId, request.patientId(), request.encounterId(), request.outcomeStatus(), request.readmissionRisk(), request.followupRequired(), request.note(), now);
+    return new DischargeOutcomeSummary(outcomeId, request.patientId(), request.encounterId(), request.outcomeStatus(), request.readmissionRisk(), request.followupRequired(), request.note(), now);
+  }
+
+  public List<DischargeOutcomeSummary> dischargeOutcomes(String patientId) {
+    return jdbc.query("""
+        SELECT outcome_id, patient_id, encounter_id, outcome_status, readmission_risk, followup_required, note, recorded_at
+        FROM discharge_outcome
+        WHERE patient_id = ?
+        ORDER BY recorded_at DESC
+        """, (rs, row) -> new DischargeOutcomeSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
+        rs.getBoolean(6), rs.getString(7), rs.getTimestamp(8).toInstant()), patientId);
+  }
+
+  public ResearchCohortSummary upsertCohort(ResearchCohortRequest request) {
+    Instant now = Instant.now();
+    if (exists("research_cohort", "cohort_id", request.cohortId())) {
+      jdbc.update("""
+          UPDATE research_cohort
+          SET name = ?, disease_scope = ?, inclusion_criteria = ?, exclusion_criteria = ?, status = 'draft'
+          WHERE cohort_id = ?
+          """, request.name(), request.diseaseScope(), request.inclusionCriteria(), request.exclusionCriteria(), request.cohortId());
+    } else {
+      jdbc.update("""
+          INSERT INTO research_cohort(cohort_id, name, disease_scope, inclusion_criteria, exclusion_criteria, status, created_at)
+          VALUES (?, ?, ?, ?, ?, 'draft', ?)
+          """, request.cohortId(), request.name(), request.diseaseScope(), request.inclusionCriteria(), request.exclusionCriteria(), now);
+    }
+    return cohort(request.cohortId());
+  }
+
+  public ResearchCohortSummary cohort(String cohortId) {
+    return jdbc.queryForObject("""
+        SELECT cohort_id, name, disease_scope, inclusion_criteria, exclusion_criteria, status, created_at, frozen_at
+        FROM research_cohort
+        WHERE cohort_id = ?
+        """, (rs, row) -> new ResearchCohortSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant()), cohortId);
+  }
+
+  public List<ResearchCohortSummary> cohorts() {
+    return jdbc.query("""
+        SELECT cohort_id, name, disease_scope, inclusion_criteria, exclusion_criteria, status, created_at, frozen_at
+        FROM research_cohort
+        ORDER BY created_at DESC
+        """, (rs, row) -> new ResearchCohortSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+        rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant()));
+  }
+
+  public ResearchVariableSummary upsertVariable(String cohortId, ResearchVariableRequest request) {
+    if (exists("research_variable", "variable_id", request.variableId())) {
+      jdbc.update("""
+          UPDATE research_variable
+          SET name = ?, definition = ?, source_table = ?, missing_policy = ?, version = ?
+          WHERE variable_id = ?
+          """, request.name(), request.definition(), request.sourceTable(), request.missingPolicy(), request.version(), request.variableId());
+    } else {
+      jdbc.update("""
+          INSERT INTO research_variable(variable_id, cohort_id, name, definition, source_table, missing_policy, version)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          """, request.variableId(), cohortId, request.name(), request.definition(), request.sourceTable(), request.missingPolicy(), request.version());
+    }
+    return variable(request.variableId());
+  }
+
+  public ResearchVariableSummary variable(String variableId) {
+    return jdbc.queryForObject("""
+        SELECT variable_id, cohort_id, name, definition, source_table, missing_policy, version
+        FROM research_variable
+        WHERE variable_id = ?
+        """, (rs, row) -> new ResearchVariableSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7)), variableId);
+  }
+
+  public List<ResearchVariableSummary> variables(String cohortId) {
+    return jdbc.query("""
+        SELECT variable_id, cohort_id, name, definition, source_table, missing_policy, version
+        FROM research_variable
+        WHERE cohort_id = ?
+        ORDER BY variable_id
+        """, (rs, row) -> new ResearchVariableSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7)), cohortId);
+  }
+
+  public ResearchQualityCheckSummary runQualityCheck(String cohortId) {
+    int subjects = jdbc.queryForObject("SELECT COUNT(DISTINCT patient_id) FROM encounters WHERE diagnosis LIKE '%社区获得性肺炎%'", Integer.class);
+    int missingLabs = jdbc.queryForObject("SELECT COUNT(*) FROM lab_result WHERE missing_status <> 'present'", Integer.class);
+    int feedbacks = jdbc.queryForObject("SELECT COUNT(*) FROM medication_feedback", Integer.class);
+    String status = missingLabs == 0 ? "passed" : "issues_found";
+    String checkId = "QC-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    String missingSummary = "critical_lab_missing_count=" + missingLabs;
+    String issueSummary = "feedback_count=" + feedbacks + "; fixed Python analysis pending for final statistics";
+    jdbc.update("""
+        INSERT INTO research_dataset_quality_check(check_id, cohort_id, status, total_subjects, missing_summary, issue_summary, checked_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, checkId, cohortId, status, subjects, missingSummary, issueSummary, now);
+    return new ResearchQualityCheckSummary(checkId, cohortId, status, subjects, missingSummary, issueSummary, now);
+  }
+
+  public void freezeCohort(String cohortId) {
+    int updated = jdbc.update("UPDATE research_cohort SET status = 'frozen', frozen_at = ? WHERE cohort_id = ? AND status <> 'frozen'",
+        Instant.now(), cohortId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("cohort not found or already frozen: " + cohortId);
+    }
+  }
+
+  public ResearchReportDraftSummary createReportDraft(String cohortId) {
+    var cohort = cohort(cohortId);
+    if (!"frozen".equals(cohort.status())) {
+      throw new IllegalArgumentException("cohort must be frozen before report draft generation");
+    }
+    var latestQuality = latestQualityCheck(cohortId);
+    String reportId = "RPT-" + UUID.randomUUID();
+    Instant now = Instant.now();
+    String title = cohort.name() + " 科研报告草稿";
+    String body = "# " + title + "\n\n"
+        + "## 队列口径\n" + cohort.inclusionCriteria() + "\n\n"
+        + "## 排除标准\n" + cohort.exclusionCriteria() + "\n\n"
+        + "## 数据质量\n" + latestQuality.missingSummary() + "\n\n"
+        + "## 统计说明\n固定 Python 统计代码尚待运行，本草稿不得包装成可投稿结论。";
+    jdbc.update("""
+        INSERT INTO research_report_draft(report_id, cohort_id, status, title, markdown_body, generated_at)
+        VALUES (?, ?, 'draft', ?, ?, ?)
+        """, reportId, cohortId, title, body, now);
+    return new ResearchReportDraftSummary(reportId, cohortId, "draft", title, body, now, null, null);
+  }
+
+  public ResearchQualityCheckSummary latestQualityCheck(String cohortId) {
+    var rows = jdbc.query("""
+        SELECT check_id, cohort_id, status, total_subjects, missing_summary, issue_summary, checked_at
+        FROM research_dataset_quality_check
+        WHERE cohort_id = ?
+        ORDER BY checked_at DESC
+        LIMIT 1
+        """, (rs, row) -> new ResearchQualityCheckSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getString(5), rs.getString(6), rs.getTimestamp(7).toInstant()), cohortId);
+    if (rows.isEmpty()) {
+      throw new IllegalArgumentException("quality check required before report draft generation");
+    }
+    return rows.get(0);
+  }
+
+  public List<ResearchReportDraftSummary> reportDrafts(String cohortId) {
+    return jdbc.query("""
+        SELECT report_id, cohort_id, status, title, markdown_body, generated_at, reviewed_at, review_note
+        FROM research_report_draft
+        WHERE cohort_id = ?
+        ORDER BY generated_at DESC
+        """, (rs, row) -> new ResearchReportDraftSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getTimestamp(6).toInstant(),
+        rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toInstant(), rs.getString(8)), cohortId);
+  }
+
+  public ResearchReportDraftSummary reviewReport(String reportId, String note) {
+    int updated = jdbc.update("""
+        UPDATE research_report_draft
+        SET status = 'reviewed', reviewed_at = ?, review_note = ?
+        WHERE report_id = ?
+        """, Instant.now(), note, reportId);
+    if (updated == 0) {
+      throw new IllegalArgumentException("report draft not found: " + reportId);
+    }
+    return jdbc.queryForObject("""
+        SELECT report_id, cohort_id, status, title, markdown_body, generated_at, reviewed_at, review_note
+        FROM research_report_draft
+        WHERE report_id = ?
+        """, (rs, row) -> new ResearchReportDraftSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getTimestamp(6).toInstant(),
+        rs.getTimestamp(7).toInstant(), rs.getString(8)), reportId);
+  }
+
   public void audit(String actor, String action, String objectId, String detail) {
     jdbc.update("INSERT INTO audit_log(audit_id, actor, action, object_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         "AUD-" + UUID.randomUUID(), actor, action, objectId, detail, Instant.now());
@@ -637,6 +861,8 @@ public class WorkbenchRepository {
     snapshot.put("latestAudits", jdbc.queryForList("SELECT action, object_id, detail FROM audit_log ORDER BY created_at DESC LIMIT 5"));
     snapshot.put("latestInboundEvents", jdbc.queryForList("SELECT source_system, source_batch_id, event_type, status FROM inbound_event ORDER BY received_at DESC LIMIT 5"));
     snapshot.put("latestRuleExecutions", jdbc.queryForList("SELECT rule_id, result_level, blocked, encounter_id FROM rule_execution ORDER BY executed_at DESC LIMIT 5"));
+    snapshot.put("timelineCount", jdbc.queryForObject("SELECT COUNT(*) FROM medication_timeline_event", Integer.class));
+    snapshot.put("researchCohortCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_cohort", Integer.class));
     return snapshot;
   }
 }

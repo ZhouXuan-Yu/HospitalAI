@@ -39,6 +39,19 @@ public final class Dto {
   public record PrescriptionDraftStatus(String draftId, String decisionId, String encounterId, String status, String hisStatus, String hisMessage, Instant callbackAt) {}
   public record PrescriptionDraftWriteTaskSummary(String taskId, String draftId, String status, int attemptCount, Instant nextAttemptAt, String lastError, Instant updatedAt) {}
   public record DraftRetryRequest(String errorMessage) {}
+  public record TimelineEventRequest(String patientId, String encounterId, String eventType, String drugCode, String drugName, String sourceSystem, String sourceId, String detail) {}
+  public record TimelineEventSummary(String eventId, String patientId, String encounterId, String eventType, String drugCode, String drugName, Instant eventTime, String sourceSystem, String sourceId, String detail) {}
+  public record MedicationFeedbackRequest(String patientId, String encounterId, String drugCode, String effectiveness, String adverseSignal, String reporterRole, String note) {}
+  public record MedicationFeedbackSummary(String feedbackId, String patientId, String encounterId, String drugCode, String effectiveness, String adverseSignal, String reporterRole, String note, Instant recordedAt) {}
+  public record DischargeOutcomeRequest(String patientId, String encounterId, String outcomeStatus, String readmissionRisk, boolean followupRequired, String note) {}
+  public record DischargeOutcomeSummary(String outcomeId, String patientId, String encounterId, String outcomeStatus, String readmissionRisk, boolean followupRequired, String note, Instant recordedAt) {}
+  public record ResearchCohortRequest(String cohortId, String name, String diseaseScope, String inclusionCriteria, String exclusionCriteria) {}
+  public record ResearchVariableRequest(String variableId, String name, String definition, String sourceTable, String missingPolicy, String version) {}
+  public record ResearchCohortSummary(String cohortId, String name, String diseaseScope, String inclusionCriteria, String exclusionCriteria, String status, Instant createdAt, Instant frozenAt) {}
+  public record ResearchVariableSummary(String variableId, String cohortId, String name, String definition, String sourceTable, String missingPolicy, String version) {}
+  public record ResearchQualityCheckSummary(String checkId, String cohortId, String status, int totalSubjects, String missingSummary, String issueSummary, Instant checkedAt) {}
+  public record ResearchReportDraftSummary(String reportId, String cohortId, String status, String title, String markdownBody, Instant generatedAt, Instant reviewedAt, String reviewNote) {}
+  public record ResearchReportReviewRequest(String reviewNote) {}
   public record SnapshotImportRequest(String sourceSystem, String sourceBatchId, Map<String, Object> payload) {}
   public record SnapshotImportResponse(String eventId, String status, String schemaVersion, int patientsUpserted, int encountersUpserted, int catalogItemsUpserted, int mappingsUpserted, List<String> warnings) {}
 }

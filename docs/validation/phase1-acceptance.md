@@ -247,3 +247,39 @@ New evidence:
 - Draft write task failures can be recorded through `/api/prescription-draft-write-tasks/{taskId}/mark-failed` and move to retry/dead-letter state after attempts.
 - HIS callback marks the prescription draft and draft write task as completed.
 - Importing a newer encounter data version expires existing recommendation snapshots for that encounter.
+
+## 2026-08-03 M4 Tracking And Research Assets Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+npm --prefix apps/web run test
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 16 passed, 0 failed.
+- Contract validation: passed.
+- Vue store: 1 passed, 0 failed.
+- Python: 4 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- `POST /api/patients/{patientId}/timeline` records a medication timeline event and `GET /api/patients/{patientId}/timeline` reads it back.
+- `POST /api/patients/{patientId}/feedback` records treatment feedback with adverse signal and appends a linked timeline event when needed.
+- `POST /api/patients/{patientId}/outcomes` records discharge outcome and readback evidence.
+- `POST /api/research/cohorts` and `POST /api/research/cohorts/{cohortId}/variables` create a research cohort and variable dictionary entries.
+- `POST /api/research/cohorts/{cohortId}/quality-check` calculates reproducible cohort checks from current database facts.
+- `POST /api/research/cohorts/{cohortId}/freeze` freezes the cohort after quality check.
+- `POST /api/research/cohorts/{cohortId}/reports` creates a report draft from frozen cohort metadata and `POST /api/research/reports/{reportId}/review` records review status.
+
+Remaining M4 gaps:
+
+- Fixed Python statistical execution, script version capture, output hashing and reproducible analysis directory are still pending.
+- ADR escalation into pharmacist or knowledge-review workflow is still pending.
+- De-identified export package and formal multi-person knowledge publication/withdrawal are still pending.

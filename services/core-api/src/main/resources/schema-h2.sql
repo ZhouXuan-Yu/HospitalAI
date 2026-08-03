@@ -25,6 +25,13 @@ DROP TABLE IF EXISTS source_identifier_mapping;
 DROP TABLE IF EXISTS department_participation;
 DROP TABLE IF EXISTS encounters;
 DROP TABLE IF EXISTS patients;
+DROP TABLE IF EXISTS research_report_draft;
+DROP TABLE IF EXISTS research_dataset_quality_check;
+DROP TABLE IF EXISTS research_variable;
+DROP TABLE IF EXISTS research_cohort;
+DROP TABLE IF EXISTS discharge_outcome;
+DROP TABLE IF EXISTS medication_feedback;
+DROP TABLE IF EXISTS medication_timeline_event;
 
 CREATE TABLE patients (patient_id TEXT PRIMARY KEY, his_patient_id TEXT NOT NULL, display_name TEXT NOT NULL, sex TEXT NOT NULL, age INT NOT NULL);
 CREATE TABLE encounters (encounter_id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, department TEXT NOT NULL, diagnosis TEXT NOT NULL, scenario TEXT NOT NULL, data_version INT NOT NULL, admitted_at TIMESTAMP NOT NULL);
@@ -36,6 +43,9 @@ CREATE TABLE diagnosis (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, name TE
 CREATE TABLE lab_result (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL, lab_value TEXT, unit TEXT, missing_status TEXT NOT NULL, source_id TEXT NOT NULL, collected_at TIMESTAMP NOT NULL);
 CREATE TABLE medication_order (id TEXT PRIMARY KEY, encounter_id TEXT NOT NULL, patient_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, pharmacology_class TEXT NOT NULL, department TEXT NOT NULL, status TEXT NOT NULL, source_id TEXT NOT NULL, updated_at TIMESTAMP NOT NULL);
 CREATE TABLE medication_exposure (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, encounter_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, started_at TIMESTAMP NOT NULL, ended_at TIMESTAMP);
+CREATE TABLE medication_timeline_event (event_id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, encounter_id TEXT NOT NULL, event_type TEXT NOT NULL, drug_code TEXT, drug_name TEXT, event_time TIMESTAMP NOT NULL, source_system TEXT NOT NULL, source_id TEXT NOT NULL, detail TEXT NOT NULL);
+CREATE TABLE medication_feedback (feedback_id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, encounter_id TEXT NOT NULL, drug_code TEXT NOT NULL, effectiveness TEXT NOT NULL, adverse_signal TEXT NOT NULL, reporter_role TEXT NOT NULL, note TEXT NOT NULL, recorded_at TIMESTAMP NOT NULL);
+CREATE TABLE discharge_outcome (outcome_id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, encounter_id TEXT NOT NULL, outcome_status TEXT NOT NULL, readmission_risk TEXT NOT NULL, followup_required BOOLEAN NOT NULL, note TEXT NOT NULL, recorded_at TIMESTAMP NOT NULL);
 CREATE TABLE allergy_event (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, status TEXT NOT NULL, severity TEXT NOT NULL, source_id TEXT NOT NULL, confirmed_at TIMESTAMP);
 CREATE TABLE adverse_drug_reaction (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, drug_code TEXT NOT NULL, drug_name TEXT NOT NULL, severity TEXT NOT NULL, review_status TEXT NOT NULL, source_id TEXT NOT NULL, reviewed_at TIMESTAMP);
 CREATE TABLE drug_catalog (drug_code TEXT PRIMARY KEY, name TEXT NOT NULL, pharmacology_class TEXT NOT NULL, status TEXT NOT NULL);
@@ -53,3 +63,7 @@ CREATE TABLE collaboration_task (task_id TEXT PRIMARY KEY, recommendation_id TEX
 CREATE TABLE prescription_draft (draft_id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, encounter_id TEXT NOT NULL, status TEXT NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMP NOT NULL, his_status TEXT, his_message TEXT, callback_at TIMESTAMP, UNIQUE (idempotency_key));
 CREATE TABLE prescription_draft_write_task (task_id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, status TEXT NOT NULL, attempt_count INT NOT NULL, next_attempt_at TIMESTAMP NOT NULL, last_error TEXT, created_at TIMESTAMP NOT NULL, updated_at TIMESTAMP NOT NULL);
 CREATE TABLE audit_log (audit_id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, object_id TEXT NOT NULL, detail TEXT NOT NULL, created_at TIMESTAMP NOT NULL);
+CREATE TABLE research_cohort (cohort_id TEXT PRIMARY KEY, name TEXT NOT NULL, disease_scope TEXT NOT NULL, inclusion_criteria TEXT NOT NULL, exclusion_criteria TEXT NOT NULL, status TEXT NOT NULL, created_at TIMESTAMP NOT NULL, frozen_at TIMESTAMP);
+CREATE TABLE research_variable (variable_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, name TEXT NOT NULL, definition TEXT NOT NULL, source_table TEXT NOT NULL, missing_policy TEXT NOT NULL, version TEXT NOT NULL);
+CREATE TABLE research_dataset_quality_check (check_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, total_subjects INT NOT NULL, missing_summary TEXT NOT NULL, issue_summary TEXT NOT NULL, checked_at TIMESTAMP NOT NULL);
+CREATE TABLE research_report_draft (report_id TEXT PRIMARY KEY, cohort_id TEXT NOT NULL, status TEXT NOT NULL, title TEXT NOT NULL, markdown_body TEXT NOT NULL, generated_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, review_note TEXT);
