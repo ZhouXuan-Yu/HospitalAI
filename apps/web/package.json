@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@vitejs/plugin-vue": "6.0.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "element-plus": "2.14.3",
     "lucide-vue-next": "0.468.0",
     "pinia": "2.3.1",

@@ -1,7 +1,7 @@
 # HospitalAI 前端信息架构与接口追踪
 
-文档版本：V1.0  
-更新时间：2026-08-03
+文档版本：V1.1
+更新时间：2026-08-04
 
 ## 1. 设计目标
 
@@ -34,7 +34,9 @@
 ## 4. 数据模式
 
 - 默认集成模式：`VITE_UI_PREVIEW=false`，页面调用 Core API，正式状态由后端和数据库决定。
-- 前端验收模式：`VITE_UI_PREVIEW=true`，只读取 `src/data/previewData.ts` 中符合接口类型的导入验证数据，不向后端发请求。
+- 前端验收模式：`VITE_UI_PREVIEW=true`，默认读取 `public/scenarios/cap-full-flow.v1.json`，也支持用户导入同 Schema 的本地 JSON，不向后端发请求。
+- 导入文件由 Ajv 按 `hospitalai.frontend-flow.v1` 校验，且必须明确声明 `synthetic=true`；患者、工作台和科研记录通过统一状态仓库衔接。
+- 医生结局记录可进入科研候选队列，科研报告冻结后形成知识审核任务；上游变化会使依赖的下游状态失效。
 - 页面固定显示“界面预览模式 / 未连接医院生产数据”，审核结果使用 `PREVIEW-*` 标识，不能与生产记录混淆。
 
 ## 5. 实现位置
@@ -43,8 +45,9 @@
 - 路由：`apps/web/src/router/index.ts`
 - 医疗主题与产品基础组件：`apps/web/src/theme.css`、`apps/web/src/product.css`
 - 页面：`apps/web/src/views/`
-- 契约型预览数据：`apps/web/src/data/previewData.ts`
-- 接口服务与状态：`apps/web/src/services/coreApi.ts`、`apps/web/src/stores/workbench.ts`
+- 版本化场景 Schema 与样例：`apps/web/src/contracts/flowScenario.schema.json`、`apps/web/public/scenarios/cap-full-flow.v1.json`
+- 接口服务与状态：`apps/web/src/services/coreApi.ts`、`apps/web/src/stores/workbench.ts`、`apps/web/src/stores/flowSimulation.ts`
+- 双核心流程说明：`docs/07_FRONTEND_FLOW_SIMULATION.md`
 - OpenAPI：`contracts/openapi/core-api.v1.yaml`、`ai-service.v1.yaml`、`his-adapter.v1.yaml`
 
 ## 6. 前端验收命令

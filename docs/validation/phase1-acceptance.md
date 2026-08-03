@@ -539,3 +539,46 @@ Remaining production boundary:
 
 - This acceptance covers the complete frontend product surface in explicit preview mode. Hospital connector credentials, production OIDC/SSO, real database integration, immutable audit storage and deployment performance budgets remain in the later backend/integration stage by current user priority.
 - The production JavaScript entry chunk is approximately 339 KB gzip because Element Plus is currently registered globally; switch to component-level imports before enforcing the production web performance budget.
+
+## 2026-08-04 JSON-Driven Prescription And Research Flow Validation
+
+Scope:
+
+- Versioned external JSON scenario import with Ajv Schema validation and no patient records hard-coded in workflow components.
+- Doctor decision through draft task, HIS draft readback, callback, structured outcome and research enrollment.
+- Research protocol, cohort, variable dictionary, quality gate, dataset freeze/hash, fixed analysis, report review/freeze and knowledge submission.
+- Downstream knowledge review task populated from the newly frozen research report.
+
+Commands:
+
+```powershell
+cd D:\WorkProject\HospitalAI\apps\web
+npm run build
+npm test
+$env:VITE_UI_PREVIEW='true'; npm run dev -- --host 127.0.0.1 --port 5176
+$env:E2E_BASE_URL='http://127.0.0.1:5176'; npm run e2e
+npm audit --registry=https://registry.npmjs.org
+```
+
+Results:
+
+- Production build: passed with Vite 7.3.6; only the known non-blocking chunk-size warning remains.
+- Vitest: 5 passed, 0 failed across 2 files.
+- Playwright: 12 passed, 0 failed across Chromium 1366x768 and 1920x1080.
+- Dependency audit: 0 vulnerabilities.
+- Safety evidence: inherited allergy remained hard blocked; missing laboratory facts remained unknown; role switching did not bypass the block.
+- Flow evidence: imported encounter `E001` produced a preview draft, callback-confirmed outcome, live research row, frozen dataset/report hashes and knowledge task `KS-RPT-CAP-FLOW-v1`.
+
+Visual evidence:
+
+- `docs/validation/ui-prescription-flow-chromium-1366.png`
+- `docs/validation/ui-prescription-flow-chromium-1920.png`
+- `docs/validation/ui-research-report-flow-chromium-1366.png`
+- `docs/validation/ui-research-report-flow-chromium-1920.png`
+- `docs/validation/ui-full-flow-chromium-1366.png`
+- `docs/validation/ui-full-flow-chromium-1920.png`
+
+Production boundary:
+
+- This validation uses imported synthetic JSON only after Schema validation and exercises the real frontend state transitions. It does not claim hospital production data, a formal HIS order, a formal research conclusion or a production knowledge publication.
+- In integration mode, these transitions must be sourced from Core API persistence and the HIS adapter; browser local storage is only a resumable acceptance session.

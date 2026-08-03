@@ -152,3 +152,12 @@
 4. 前端通过 `VITE_UI_PREVIEW=true` 使用契约型验证数据独立运行，界面持续显示非生产边界；集成环境保持 `false` 并调用 Core API。
 5. API 文档页直接解析三份版本化 OpenAPI YAML，当前展示 61 个操作并映射到对应功能页面。
 6. 前端生产构建、Vitest 和 Playwright 两视口验收结果记录在 `docs/validation/phase1-acceptance.md`，信息架构与接口追踪见 `docs/06_FRONTEND_INFORMATION_ARCHITECTURE.md`。
+
+## 2026-08-04 双核心前端流程状态
+
+1. 前端验证数据已从组件内静态数据升级为版本化外部 JSON 场景包，Schema 为 `apps/web/src/contracts/flowScenario.schema.json`，样例为 `apps/web/public/scenarios/cap-full-flow.v1.json`。
+2. 场景导入使用 Ajv 校验并要求 `synthetic=true`；患者、工作台与科研种子必须一一对应，非法 JSON、错误版本和结构缺失会在进入业务状态前被拒绝。
+3. 处方辅助决策已贯通医生采纳/修改/驳回、硬阻断、草稿创建、可靠任务、HIS 草稿状态、回调确认、结构化结局和科研入组。
+4. 科研工作台已贯通方案、队列、变量、质控、冻结哈希、固定统计、报告草稿、审核冻结、知识提交和知识审核中心；上游变化会使下游产物失效。
+5. 前端会话可在浏览器本地恢复和重置，但不冒充正式数据库状态；生产模式仍以 Core API、数据库和医院适配器为唯一权威。
+6. Vitest 当前 5/5 通过，Playwright 在 1366x768 与 1920x1080 共 12/12 通过；完整说明见 `docs/07_FRONTEND_FLOW_SIMULATION.md`。

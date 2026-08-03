@@ -7,7 +7,7 @@
         <span><strong>HospitalAI</strong><small>院内药学辅助决策</small></span>
       </router-link>
 
-      <div class="preview-boundary"><FlaskConical :size="15" /><span><strong>界面预览模式</strong><small>未连接医院生产数据</small></span></div>
+      <button class="preview-boundary" type="button" title="导入或切换 JSON 流程场景" @click="flow.importDialogVisible=true"><FlaskConical :size="15" /><span><strong>JSON 流程演示</strong><small>{{ flow.worklist.length || 0 }} 个就诊 · 未连接生产数据</small></span><FileJson2 :size="14"/></button>
 
       <nav class="shell-nav">
         <template v-for="group in visibleNavigation" :key="group.key">
@@ -17,7 +17,7 @@
           <div v-show="!collapsedGroups.has(group.key)" class="nav-group-items">
             <router-link v-for="item in group.items" :key="item.path" :to="item.path">
               <component :is="item.icon" :size="17" /><span>{{ item.label }}</span>
-              <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+              <span v-if="item.badge" class="nav-badge">{{ item.badge==='patients' ? flow.worklist.length : item.badge }}</span>
             </router-link>
           </div>
         </template>
@@ -48,6 +48,7 @@
         <div class="shell-actions">
           <el-tooltip content="系统内待办" placement="bottom"><el-button :icon="Bell" circle aria-label="系统内待办" /><span class="notification-dot"></span></el-tooltip>
           <el-tooltip content="接口状态" placement="bottom"><el-button :icon="Activity" circle aria-label="接口状态" @click="$router.push('/admin/integrations')" /></el-tooltip>
+          <el-tooltip :content="flow.currentScenarioLabel" placement="bottom"><el-button :icon="FileJson2" circle aria-label="导入JSON场景" @click="flow.importDialogVisible=true"/></el-tooltip>
           <div class="shell-user"><span>周</span><div><strong>周医生</strong><small>{{ roleLabel }}</small></div></div>
         </div>
       </header>
@@ -56,26 +57,30 @@
         <router-view />
       </main>
     </section>
+    <ScenarioImportDialog/>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  Activity, Bell, BookOpenCheck, Braces, ChevronDown, ChevronRight, ClipboardCheck,
+  Activity, Bell, BookOpenCheck, Braces, ChevronDown, ChevronRight, ClipboardCheck, FileJson2,
   FlaskConical, GitBranch, History, Library, ListTodo, Network, Search, ShieldCheck,
   Stethoscope, UsersRound
 } from 'lucide-vue-next'
+import ScenarioImportDialog from '../components/ScenarioImportDialog.vue'
+import { useFlowSimulationStore } from '../stores/flowSimulation'
 
 type Role = 'super_admin' | 'doctor' | 'pharmacist' | 'researcher' | 'admin'
 const route = useRoute()
+const flow = useFlowSimulationStore()
 const role = ref<Role>('super_admin')
 const collapsedGroups = ref(new Set<string>())
 
 const navigation = [
   { key: 'doctor', label: '医生工作区', roles: ['super_admin', 'doctor'], items: [
-    { label: '患者工作列表', path: '/doctor/worklist', icon: ListTodo, badge: '5' },
+    { label: '患者工作列表', path: '/doctor/worklist', icon: ListTodo, badge: 'patients' },
     { label: '处方辅助决策', path: '/doctor/workbench/E001', icon: Stethoscope },
     { label: '患者用药全景', path: '/doctor/patients/P001', icon: UsersRound },
     { label: '长期用药追踪', path: '/doctor/timeline/P001', icon: History }
@@ -108,4 +113,6 @@ function toggleGroup(key: string) {
   next.has(key) ? next.delete(key) : next.add(key)
   collapsedGroups.value = next
 }
+
+onMounted(() => flow.ensureScenario())
 </script>

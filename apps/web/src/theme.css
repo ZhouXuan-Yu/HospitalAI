@@ -1607,3 +1607,42 @@ th.selected .radio-indicator {
     animation-iteration-count: 1 !important;
   }
 }
+
+.prescription-lifecycle {
+  margin: 0 14px 14px;
+  border: 1px solid #cbdadd;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.prescription-lifecycle > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dce5e7;
+}
+
+.prescription-lifecycle h2 { margin: 2px 0; font-size: 11px; }
+.prescription-lifecycle header p { margin: 0; color: #718088; font-size: 8px; }
+.lifecycle-steps { display: grid; grid-template-columns: repeat(4, 1fr); padding: 10px 12px; background: #f6f9f9; }
+.lifecycle-steps > div { min-width: 0; display: grid; grid-template-columns: 25px minmax(0,1fr) 14px; align-items: center; gap: 5px; color: #849096; }
+.lifecycle-steps > div > span { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #c7d3d6; border-radius: 50%; font-size: 8px; }
+.lifecycle-steps > div.done { color: #256f5b; }
+.lifecycle-steps > div.done > span { border-color: #6ea996; background: #e8f4ef; }
+.lifecycle-steps > div > div { min-width: 0; display: grid; gap: 2px; }
+.lifecycle-steps strong,.lifecycle-steps small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lifecycle-steps strong { font-size: 8px; }.lifecycle-steps small { font-size: 7px; }
+.lifecycle-actions { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid #e0e7e9; }
+.lifecycle-actions > div:first-child { display: grid; gap: 2px; }.lifecycle-actions strong { font-size: 9px; }.lifecycle-actions span { color: #6c7c83; font-size: 8px; }
+.lifecycle-actions .el-alert { grid-column: 1 / -1; }
+.outcome-receipt { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; align-items: center; gap: 7px; margin: 0 12px 10px; padding: 8px 9px; border: 1px solid #b7daca; background: #edf8f3; color: #286a56; }
+.outcome-receipt > div { display: grid; gap: 2px; }.outcome-receipt strong { font-size: 9px; }.outcome-receipt span,.outcome-receipt code { font-size: 8px; }
+.rejection-boundary { display: flex; align-items: center; gap: 7px; padding: 12px; color: #6d7c83; font-size: 9px; }
+.outcome-form { margin-top: 12px; }.outcome-switches { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.outcome-switches label { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px; border: 1px solid #dbe4e6; background: #f7f9fa; font-size: 9px; }
+
+@media (max-width: 1500px) {
+  .prescription-lifecycle { margin: 0 12px 12px; }
+  .lifecycle-steps { grid-template-columns: repeat(2,1fr); gap: 8px 0; }
+}

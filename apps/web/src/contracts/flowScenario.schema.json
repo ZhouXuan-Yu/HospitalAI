@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hospitalai.local/contracts/frontend-flow.v1.schema.json",
+  "title": "HospitalAI Frontend Flow Scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "metadata", "worklist", "workbenches", "research"],
+  "properties": {
+    "schemaVersion": { "const": "hospitalai.frontend-flow.v1" },
+    "metadata": {
+      "type": "object",
+      "required": ["scenarioId", "name", "version", "generatedAt", "source", "synthetic", "disclaimer"],
+      "properties": {
+        "scenarioId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "source": { "type": "string", "minLength": 1 },
+        "synthetic": { "const": true },
+        "disclaimer": { "type": "string", "minLength": 8 }
+      }
+    },
+    "worklist": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["encounterId", "patientId", "displayName", "sex", "age", "department", "diagnosis", "dataVersion", "scenario", "admittedAt", "sourcePatientId"]
+      }
+    },
+    "workbenches": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["patient", "encounter", "facts", "alerts", "candidates", "missingInfo", "stages", "recommendationId", "aiStatus"],
+        "properties": {
+          "facts": { "type": "array" },
+          "alerts": { "type": "array" },
+          "candidates": { "type": "array", "minItems": 2, "maxItems": 3 },
+          "missingInfo": { "type": "array" },
+          "stages": { "type": "array", "minItems": 4 },
+          "patient": { "type": "object" },
+          "encounter": { "type": "object" },
+          "recommendationId": { "type": "string" },
+          "aiStatus": { "type": "string" }
+        }
+      }
+    },
+    "research": {
+      "type": "object",
+      "required": ["project", "historicalRecords", "variables", "qualityIssues", "analysisPlan", "reportTemplate"],
+      "properties": {
+        "project": { "type": "object", "required": ["projectId", "title", "owner", "protocolVersion", "researchQuestion", "design", "inclusionCriteria", "exclusionCriteria", "observationWindow", "ethicsStatus"] },
+        "historicalRecords": { "type": "array", "minItems": 3 },
+        "variables": { "type": "array", "minItems": 4 },
+        "qualityIssues": { "type": "array" },
+        "analysisPlan": { "type": "object", "required": ["scriptName", "scriptVersion", "method", "outputs"] },
+        "reportTemplate": { "type": "object", "required": ["title", "limitations", "applicability"] }
+      }
+    }
+  }
+}

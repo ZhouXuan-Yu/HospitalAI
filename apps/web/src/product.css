@@ -66,6 +66,7 @@
 .shell-brand small { color: #6a7981; font-size: 9px; }
 
 .preview-boundary {
+  width: calc(100% - 20px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -75,6 +76,9 @@
   border-radius: 5px;
   background: #fff9e9;
   color: #7f5a15;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .preview-boundary > span {
@@ -85,6 +89,8 @@
 
 .preview-boundary strong { font-size: 10px; }
 .preview-boundary small { font-size: 8px; opacity: .78; }
+.preview-boundary > svg:last-child { margin-left: auto; flex: 0 0 auto; }
+.preview-boundary:hover { border-color: #b89d5c; background: #fff5d9; }
 
 .shell-nav {
   min-height: 0;

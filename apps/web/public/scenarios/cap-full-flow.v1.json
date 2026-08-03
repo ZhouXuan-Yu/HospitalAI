@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "hospitalai.frontend-flow.v1",
+  "metadata": {
+    "scenarioId": "CAP-FULL-FLOW-2026-08",
+    "name": "CAP 处方决策与科研闭环验证包",
+    "version": "1.0.0",
+    "generatedAt": "2026-08-03T08:00:00.000Z",
+    "source": "HOSPITALAI_SYNTHETIC_IMPORT",
+    "synthetic": true,
+    "disclaimer": "全部记录均为合成模拟数据，仅用于产品流程验收，不构成临床或科研结论。"
+  },
+  "worklist": [
+    { "encounterId": "E001", "patientId": "P001", "displayName": "合成患者A", "sex": "F", "age": 66, "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "dataVersion": 3, "scenario": "normal", "admittedAt": "2026-08-03T08:10:00.000Z", "sourcePatientId": "HIS-P001" },
+    { "encounterId": "E002-2", "patientId": "P002", "displayName": "合成患者B", "sex": "M", "age": 72, "department": "呼吸内科", "diagnosis": "社区获得性肺炎，第二次入院", "dataVersion": 4, "scenario": "confirmed_allergy_second_admission", "admittedAt": "2026-08-03T07:40:00.000Z", "sourcePatientId": "HIS-P002" },
+    { "encounterId": "E005", "patientId": "P005", "displayName": "合成患者E", "sex": "F", "age": 81, "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "dataVersion": 1, "scenario": "critical_lab_missing", "admittedAt": "2026-08-02T20:36:00.000Z", "sourcePatientId": "HIS-P005" }
+  ],
+  "workbenches": [
+    {
+      "patient": { "patientId": "P001", "displayName": "合成患者A", "sex": "F", "age": 66, "source": "HOSPITALAI_SYNTHETIC_IMPORT", "sourcePatientId": "HIS-P001" },
+      "encounter": { "encounterId": "E001", "patientId": "P001", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "dataVersion": 3, "scenario": "normal" },
+      "facts": [
+        { "type": "diagnosis", "label": "当前诊断", "value": "社区获得性肺炎 / active", "source": "HIS_IMPORT", "sourceId": "HIS-DX-E001", "collectedAt": "2026-08-03T08:20:00.000Z", "missingStatus": "present" },
+        { "type": "lab", "label": "肌酐", "value": "76 umol/L", "source": "LIS_IMPORT", "sourceId": "LIS-E001-CREA", "collectedAt": "2026-08-03T08:50:00.000Z", "missingStatus": "present" },
+        { "type": "lab", "label": "C反应蛋白", "value": "42 mg/L", "source": "LIS_IMPORT", "sourceId": "LIS-E001-CRP", "collectedAt": "2026-08-03T08:50:00.000Z", "missingStatus": "present" },
+        { "type": "medication", "label": "当前用药", "value": "0.9%氯化钠注射液 · 静脉滴注", "source": "HIS_IMPORT", "sourceId": "ORD-E001-001", "collectedAt": "2026-08-03T08:35:00.000Z", "missingStatus": "present" }
+      ],
+      "alerts": [],
+      "candidates": [
+        { "candidateId": "C-CEF-AZI", "name": "推荐方案", "drugCodes": ["D-CEF", "D-AZI"], "regimen": "头孢曲松 + 阿奇霉素，剂量由医生按已发布院内规则确认", "reason": "符合导入的 CAP 演示路径，患者关键检验完整", "difference": "联合方案；需持续监测心电风险和肝肾功能", "risks": [], "monitoring": ["过敏史", "肌酐", "CRP", "当前有效用药"], "evidence": [{ "evidenceId": "EV-CAP-001", "title": "CAP 演示证据集：住院成人初始治疗路径", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第2页 · 初始方案 · 第3段", "text": "演示证据：候选必须来自院内目录，提交前复核过敏、检验和当前用药。", "score": 0.92 }], "excludedDrugs": ["万古霉素：不在当前导入目录可用范围"], "blocked": false },
+        { "candidateId": "C-AMOX", "name": "备选方案", "drugCodes": ["D-AMOX"], "regimen": "阿莫西林克拉维酸钾，剂量由医生按已发布院内规则确认", "reason": "院内目录内备选，需继续确认青霉素过敏史", "difference": "单一药理类别方案；过敏风险边界不同", "risks": [], "monitoring": ["过敏史", "肾功能"], "evidence": [{ "evidenceId": "EV-CAP-001", "title": "CAP 演示证据集：住院成人初始治疗路径", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第2页 · 初始方案 · 第3段", "text": "演示证据：候选必须来自院内目录，提交前复核过敏、检验和当前用药。", "score": 0.86 }], "excludedDrugs": [], "blocked": false },
+        { "candidateId": "C-LEV", "name": "特定条件方案", "drugCodes": ["D-LEV"], "regimen": "左氧氟沙星，剂量由医生按已发布院内规则确认", "reason": "仅作为特定条件下的可比较候选", "difference": "需额外复核既往不良反应和心电风险", "risks": ["需药师复核特定风险"], "monitoring": ["不良反应史", "肾功能", "心电风险"], "evidence": [{ "evidenceId": "EV-CAP-002", "title": "CAP 演示证据集：监测要求", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第4页 · 监测项目 · 表2", "text": "演示证据：特定条件候选需加强不良反应与心电监测。", "score": 0.78 }], "excludedDrugs": [], "blocked": false }
+      ],
+      "missingInfo": [],
+      "stages": [
+        { "name": "patient_context", "status": "complete", "elapsedMs": 82, "detail": "导入患者事实已汇总，原始事实保持只读" },
+        { "name": "deterministic_rules", "status": "complete", "elapsedMs": 146, "detail": "确定性安全规则执行完成" },
+        { "name": "controlled_evidence", "status": "complete", "elapsedMs": 324, "detail": "受控演示证据检索完成" },
+        { "name": "candidate_ranking", "status": "complete", "elapsedMs": 418, "detail": "目录内候选排序完成" }
+      ],
+      "recommendationId": "REC-E001-v3",
+      "aiStatus": "deterministic-import"
+    },
+    {
+      "patient": { "patientId": "P002", "displayName": "合成患者B", "sex": "M", "age": 72, "source": "HOSPITALAI_SYNTHETIC_IMPORT", "sourcePatientId": "HIS-P002" },
+      "encounter": { "encounterId": "E002-2", "patientId": "P002", "department": "呼吸内科", "diagnosis": "社区获得性肺炎，第二次入院", "dataVersion": 4, "scenario": "confirmed_allergy_second_admission" },
+      "facts": [
+        { "type": "diagnosis", "label": "当前诊断", "value": "社区获得性肺炎 / active", "source": "HIS_IMPORT", "sourceId": "HIS-DX-E002-2", "collectedAt": "2026-08-03T07:50:00.000Z", "missingStatus": "present" },
+        { "type": "allergy", "label": "历史确认过敏", "value": "阿莫西林克拉维酸钾 · 确认 · 首次住院记录", "source": "EMR_IMPORT", "sourceId": "ALG-P002-AMOX", "collectedAt": "2026-03-18T09:30:00.000Z", "missingStatus": "present" },
+        { "type": "lab", "label": "肌酐", "value": "88 umol/L", "source": "LIS_IMPORT", "sourceId": "LIS-E002-CREA", "collectedAt": "2026-08-03T08:10:00.000Z", "missingStatus": "present" }
+      ],
+      "alerts": [{ "ruleId": "HR-ALG-001", "version": "2026.08", "status": "published-demo", "level": "block", "message": "已确认药物过敏：后续就诊继承并阻断阿莫西林克拉维酸钾", "facts": ["ALG-P002-AMOX"], "blocking": true }],
+      "candidates": [
+        { "candidateId": "C-CEF-AZI", "name": "待风险澄清方案", "drugCodes": ["D-CEF", "D-AZI"], "regimen": "头孢曲松 + 阿奇霉素，需先完成过敏交叉风险人工核对", "reason": "存在历史确认过敏，当前推荐整体被处方草稿硬锁定", "difference": "不得在未处理阻断前创建草稿", "risks": ["患者级硬阻断尚未解除"], "monitoring": ["过敏史", "药师复核"], "evidence": [{ "evidenceId": "EV-CAP-001", "title": "CAP 演示证据集：住院成人初始治疗路径", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第2页 · 初始方案 · 第3段", "text": "确认过敏优先执行确定性规则。", "score": 0.92 }], "excludedDrugs": [], "blocked": true },
+        { "candidateId": "C-AMOX", "name": "已排除方案", "drugCodes": ["D-AMOX"], "regimen": "阿莫西林克拉维酸钾", "reason": "命中跨就诊继承的已确认过敏，禁止提交", "difference": "与患者确认过敏药物直接匹配", "risks": ["已确认药物过敏硬阻断"], "monitoring": ["不适用"], "evidence": [{ "evidenceId": "EV-CAP-001", "title": "CAP 演示证据集：住院成人初始治疗路径", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第2页 · 安全边界", "text": "确认过敏药物不得作为可提交候选。", "score": 1.0 }], "excludedDrugs": ["阿莫西林克拉维酸钾：确认过敏"], "blocked": true }
+      ],
+      "missingInfo": [],
+      "stages": [
+        { "name": "patient_context", "status": "complete", "elapsedMs": 76, "detail": "跨就诊过敏事实已继承" },
+        { "name": "deterministic_rules", "status": "blocked", "elapsedMs": 91, "detail": "HR-ALG-001 硬阻断" },
+        { "name": "controlled_evidence", "status": "complete", "elapsedMs": 210, "detail": "已定位阻断依据" },
+        { "name": "candidate_ranking", "status": "complete", "elapsedMs": 264, "detail": "候选仅用于风险比较，不可提交" }
+      ],
+      "recommendationId": "REC-E002-2-v4",
+      "aiStatus": "deterministic-import"
+    },
+    {
+      "patient": { "patientId": "P005", "displayName": "合成患者E", "sex": "F", "age": 81, "source": "HOSPITALAI_SYNTHETIC_IMPORT", "sourcePatientId": "HIS-P005" },
+      "encounter": { "encounterId": "E005", "patientId": "P005", "department": "呼吸内科", "diagnosis": "社区获得性肺炎", "dataVersion": 1, "scenario": "critical_lab_missing" },
+      "facts": [
+        { "type": "diagnosis", "label": "当前诊断", "value": "社区获得性肺炎 / active", "source": "HIS_IMPORT", "sourceId": "HIS-DX-E005", "collectedAt": "2026-08-02T20:45:00.000Z", "missingStatus": "present" },
+        { "type": "lab", "label": "肌酐", "value": "未知", "source": "LIS_IMPORT", "sourceId": "MISS-E005-CREA", "collectedAt": "2026-08-02T20:50:00.000Z", "missingStatus": "missing" },
+        { "type": "lab", "label": "C反应蛋白", "value": "未知", "source": "LIS_IMPORT", "sourceId": "MISS-E005-CRP", "collectedAt": "2026-08-02T20:50:00.000Z", "missingStatus": "missing" }
+      ],
+      "alerts": [
+        { "ruleId": "HR-MISS-001", "version": "2026.08", "status": "published-demo", "level": "info", "message": "关键检验缺失：C反应蛋白，不得按正常值处理", "facts": ["MISS-E005-CRP"], "blocking": false },
+        { "ruleId": "HR-MISS-001", "version": "2026.08", "status": "published-demo", "level": "info", "message": "关键检验缺失：肌酐，不得按正常值处理", "facts": ["MISS-E005-CREA"], "blocking": false }
+      ],
+      "candidates": [
+        { "candidateId": "C-CEF-AZI", "name": "信息待补方案", "drugCodes": ["D-CEF", "D-AZI"], "regimen": "头孢曲松 + 阿奇霉素，待关键检验补齐后由医生确认", "reason": "候选仅供比较，关键检验未知", "difference": "不能把缺失检验解释为正常", "risks": ["关键检验缺失"], "monitoring": ["肌酐", "CRP", "补采检验"], "evidence": [{ "evidenceId": "EV-CAP-002", "title": "CAP 演示证据集：监测要求", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第4页 · 监测项目 · 表2", "text": "关键检验缺失时必须显式标注。", "score": 0.88 }], "excludedDrugs": [], "blocked": false },
+        { "candidateId": "C-LEV", "name": "特定条件方案", "drugCodes": ["D-LEV"], "regimen": "左氧氟沙星，待肾功能补齐后再评估", "reason": "肾功能未知，无法完成适用性评估", "difference": "需要更多患者信息", "risks": ["肾功能未知"], "monitoring": ["肌酐", "心电风险"], "evidence": [{ "evidenceId": "EV-CAP-002", "title": "CAP 演示证据集：监测要求", "status": "published-demo", "version": "2026.08-demo", "effectiveDate": "2026-08-03", "locator": "第4页 · 监测项目 · 表2", "text": "未知值不得当作正常值参与排序。", "score": 0.82 }], "excludedDrugs": [], "blocked": false }
+      ],
+      "missingInfo": ["肌酐缺失，来源 LIS_IMPORT", "C反应蛋白缺失，来源 LIS_IMPORT"],
+      "stages": [
+        { "name": "patient_context", "status": "complete", "elapsedMs": 71, "detail": "缺失事实已结构化" },
+        { "name": "deterministic_rules", "status": "complete", "elapsedMs": 95, "detail": "关键缺失提示已生成" },
+        { "name": "controlled_evidence", "status": "complete", "elapsedMs": 202, "detail": "监测依据已定位" },
+        { "name": "candidate_ranking", "status": "degraded", "elapsedMs": 250, "detail": "候选因关键检验缺失降级显示" }
+      ],
+      "recommendationId": "REC-E005-v1",
+      "aiStatus": "degraded"
+    }
+  ],
+  "research": {
+    "project": {
+      "projectId": "PROJECT-CAP-2026-01",
+      "title": "CAP 住院患者抗感染流程观察研究",
+      "owner": "周医生",
+      "protocolVersion": "v1.0-draft",
+      "researchQuestion": "描述纳入队列中处方决策流程、方案暴露与院内结局的分布，不进行因果推断。",
+      "design": "单中心回顾性描述性流程验证",
+      "inclusionCriteria": ["年龄 >= 18 岁", "住院就诊诊断包含社区获得性肺炎", "存在已审核处方决策或历史实际用药暴露"],
+      "exclusionCriteria": ["关键患者标识无法映射", "无实际用药记录", "仅门诊就诊"],
+      "observationWindow": "入院至出院后 30 天随访",
+      "ethicsStatus": "流程演示数据，无真实患者，不替代正式伦理审批"
+    },
+    "historicalRecords": [
+      { "recordId": "RR-001", "patientId": "RP101", "encounterId": "RE101", "age": 54, "sex": "F", "diagnosis": "社区获得性肺炎", "admittedAt": "2026-06-03T08:00:00.000Z", "regimen": "头孢曲松 + 阿奇霉素", "treatmentResponse": "improved", "adverseEvent": false, "followupComplete": true, "sourceVersion": "import-batch-2026-07-v2" },
+      { "recordId": "RR-002", "patientId": "RP102", "encounterId": "RE102", "age": 71, "sex": "M", "diagnosis": "社区获得性肺炎", "admittedAt": "2026-06-10T08:00:00.000Z", "regimen": "阿莫西林克拉维酸钾", "treatmentResponse": "improved", "adverseEvent": false, "followupComplete": true, "sourceVersion": "import-batch-2026-07-v2" },
+      { "recordId": "RR-003", "patientId": "RP103", "encounterId": "RE103", "age": 63, "sex": "F", "diagnosis": "社区获得性肺炎", "admittedAt": "2026-06-18T08:00:00.000Z", "regimen": "头孢曲松 + 阿奇霉素", "treatmentResponse": "stable", "adverseEvent": true, "followupComplete": true, "sourceVersion": "import-batch-2026-07-v2" },
+      { "recordId": "RR-004", "patientId": "RP104", "encounterId": "RE104", "age": 45, "sex": "M", "diagnosis": "社区获得性肺炎", "admittedAt": "2026-07-01T08:00:00.000Z", "regimen": "左氧氟沙星", "treatmentResponse": "improved", "adverseEvent": false, "followupComplete": false, "sourceVersion": "import-batch-2026-07-v2" },
+      { "recordId": "RR-005", "patientId": "RP105", "encounterId": "RE105", "age": 77, "sex": "F", "diagnosis": "社区获得性肺炎", "admittedAt": "2026-07-08T08:00:00.000Z", "regimen": "头孢曲松 + 阿奇霉素", "treatmentResponse": "worsened", "adverseEvent": false, "followupComplete": true, "sourceVersion": "import-batch-2026-07-v2" }
+    ],
+    "variables": [
+      { "code": "age", "name": "入院年龄", "role": "confounder", "type": "number", "sourcePath": "PatientProfile.age", "missingRule": "缺失则排除并进入质量队列" },
+      { "code": "regimen", "name": "实际抗感染方案", "role": "exposure", "type": "string", "sourcePath": "MedicationExposure.regimen", "missingRule": "无实际用药暴露则排除" },
+      { "code": "treatment_response", "name": "院内治疗反应", "role": "outcome", "type": "string", "sourcePath": "DischargeOutcome.treatmentResponse", "missingRule": "未知单独分层，不按改善处理" },
+      { "code": "adverse_event", "name": "住院期间不良事件", "role": "outcome", "type": "boolean", "sourcePath": "AdverseDrugReaction.occurred", "missingRule": "无记录不等同于无事件，需来源完整" },
+      { "code": "followup_complete", "name": "30天随访完整", "role": "group", "type": "boolean", "sourcePath": "DischargeOutcome.followup30d", "missingRule": "缺失计入质量报告" }
+    ],
+    "qualityIssues": [
+      { "issueId": "QI-FOLLOWUP-001", "severity": "warning", "title": "30天随访缺失", "field": "followupComplete", "affectedRecords": 1, "resolution": "保留缺失分层并在报告中披露" },
+      { "issueId": "QI-EXPOSURE-001", "severity": "blocking", "title": "实际用药暴露需人工确认", "field": "regimen", "affectedRecords": 1, "resolution": "核对来源医嘱与执行记录后确认" }
+    ],
+    "analysisPlan": {
+      "scriptName": "cap-descriptive-flow-statistics",
+      "scriptVersion": "1.0.0",
+      "method": "固定版本描述性统计：频数、比例与分组分布；不执行因果推断或自由选择模型。",
+      "outputs": ["纳排流程表", "患者基线特征", "方案暴露分布", "治疗反应分布", "安全事件与缺失说明"]
+    },
+    "reportTemplate": {
+      "title": "CAP 住院患者处方决策流程与院内结局描述性报告草稿",
+      "limitations": ["全部为合成验证记录", "样本量仅用于流程演示", "未进行因果推断", "不构成可投稿论文或临床结论"],
+      "applicability": "仅用于 HospitalAI 前端流程验证，不参与正式处方推荐。"
+    }
+  }
+}

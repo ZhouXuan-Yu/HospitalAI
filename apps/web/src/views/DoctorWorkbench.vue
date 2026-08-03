@@ -366,6 +366,27 @@
             <el-tag size="small" type="success">已审计</el-tag>
           </div>
         </section>
+
+        <section v-if="flowDecision" class="prescription-lifecycle" data-testid="prescription-lifecycle" aria-labelledby="lifecycle-title">
+          <header>
+            <div><span class="selection-kicker">处方后闭环</span><h2 id="lifecycle-title">草稿回写与结局记录</h2><p>{{ flowDecision.draftId || '推荐已驳回，不生成处方草稿' }}</p></div>
+            <el-tag :type="flowDecision.action==='reject'?'info':flowOutcome?'success':'warning'" effect="plain">{{ lifecycleStatusLabel }}</el-tag>
+          </header>
+          <template v-if="flowDecision.action!=='reject'">
+            <nav class="lifecycle-steps" aria-label="处方草稿流程">
+              <div v-for="(step,index) in draftSteps" :key="step.key" :class="{done:index<=currentDraftIndex,active:index===currentDraftIndex}"><span><CircleCheck v-if="index<=currentDraftIndex" :size="14"/><span v-else>{{ index+1 }}</span></span><div><strong>{{ step.label }}</strong><small>{{ step.meta }}</small></div><ChevronRight v-if="index<draftSteps.length-1" :size="14"/></div>
+            </nav>
+            <div class="lifecycle-actions">
+              <div><strong>下一业务动作</strong><span>{{ nextLifecycleHint }}</span></div>
+              <el-alert v-if="flowActionError" type="error" :title="flowActionError" :closable="false"/>
+              <el-button v-if="currentDraftIndex<draftSteps.length-1" type="primary" :icon="Send" @click="advanceDraft">{{ nextDraftActionLabel }}</el-button>
+              <el-button v-else-if="!flowOutcome" type="primary" :icon="ClipboardPlus" @click="openOutcomeDialog">登记实际用药与出院结局</el-button>
+              <el-button v-else type="success" :icon="FlaskConical" @click="router.push('/research/workbench')">进入科研队列流程</el-button>
+            </div>
+            <div v-if="flowOutcome" class="outcome-receipt"><CircleCheck :size="17"/><div><strong>结局已结构化并进入科研候选池</strong><span>{{ responseLabel(flowOutcome.treatmentResponse) }} · 不良事件 {{ flowOutcome.adverseEvent?'有':'无' }} · 30天随访 {{ flowOutcome.followupComplete?'完整':'缺失' }}</span></div><code>LIVE-{{ encounterId }}</code></div>
+          </template>
+          <div v-else class="rejection-boundary"><Ban :size="17"/><span>驳回已写入前端审计链，流程在医生决策阶段结束。</span></div>
+        </section>
       </section>
 
       <button v-if="rightDrawerVisible" class="drawer-backdrop" type="button" aria-label="关闭安全审查" @click="rightDrawerVisible = false"></button>
@@ -500,6 +521,16 @@
         <el-alert type="info" title="AI 摘要不会覆盖此原始事实。" :closable="false" show-icon />
       </div>
     </el-drawer>
+
+    <el-dialog v-model="outcomeDialogVisible" title="登记实际用药与出院结局" width="560px" append-to-body :close-on-click-modal="false">
+      <el-alert type="warning" title="此记录来自前端流程模拟，将作为科研队列候选记录；未知值必须显式选择，不能按正常处理。" :closable="false" show-icon/>
+      <el-form class="outcome-form" label-position="top">
+        <el-form-item label="实际执行用药方案"><el-input v-model="outcomeForm.actualRegimen" type="textarea" :rows="2"/></el-form-item>
+        <el-form-item label="院内治疗反应"><el-select v-model="outcomeForm.treatmentResponse" aria-label="院内治疗反应"><el-option label="改善" value="improved"/><el-option label="稳定" value="stable"/><el-option label="恶化" value="worsened"/><el-option label="未知 / 待随访" value="unknown"/></el-select></el-form-item>
+        <div class="outcome-switches"><label><span>住院期间不良事件</span><el-switch v-model="outcomeForm.adverseEvent"/></label><label><span>30天随访已完整</span><el-switch v-model="outcomeForm.followupComplete"/></label></div>
+      </el-form>
+      <template #footer><el-button @click="outcomeDialogVisible=false">取消</el-button><el-button type="primary" :disabled="!outcomeForm.actualRegimen.trim()" @click="saveOutcome">保存并进入科研候选池</el-button></template>
+    </el-dialog>
   </main>
 </template>
 
@@ -523,6 +554,7 @@ import {
   CircleHelp,
   ExternalLink,
   FileText,
+  FlaskConical,
   GitCompareArrows,
   HeartPulse,
   History,
@@ -540,17 +572,22 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShieldX,
+  Send,
   Stethoscope,
   TriangleAlert,
   X,
-  XCircle
+  XCircle,
+  ClipboardPlus
 } from 'lucide-vue-next'
 import type { CandidatePlan, EvidenceSnippet, Fact, SafetyAlert, StageState } from '../services/coreApi'
 import { useWorkbenchStore } from '../stores/workbench'
+import { useFlowSimulationStore } from '../stores/flowSimulation'
+import type { OutcomeRecord } from '../types/flowScenario'
 
 const route = useRoute()
 const router = useRouter()
 const store = useWorkbenchStore()
+const flow = useFlowSimulationStore()
 const encounterId = ref(String(route.params.encounterId || 'E001'))
 const reason = ref('已核对患者事实、规则风险与证据，仅生成 HIS 处方草稿')
 const patientTab = ref('current')
@@ -561,8 +598,23 @@ const sourceDrawerVisible = ref(false)
 const activeEvidence = ref<EvidenceSnippet | null>(null)
 const activeFact = ref<Fact | null>(null)
 const decisionMode = ref<'modify' | 'reject' | null>(null)
+const outcomeDialogVisible = ref(false)
+const flowActionError = ref('')
+const outcomeForm = ref({ actualRegimen: '', treatmentResponse: 'improved' as OutcomeRecord['treatmentResponse'], adverseEvent: false, followupComplete: true })
 
 const selectedCandidate = computed(() => store.selectedCandidate)
+const flowDecision = computed(() => flow.decisionFor(encounterId.value))
+const flowOutcome = computed(() => flow.outcomes[encounterId.value])
+const draftSteps = [
+  { key: 'CREATED', label: '医生审核', meta: '草稿已创建' },
+  { key: 'WRITE_QUEUED', label: '可靠任务', meta: '等待适配器' },
+  { key: 'HIS_DRAFT_CREATED', label: 'HIS 草稿', meta: '仅草稿状态' },
+  { key: 'CALLBACK_CONFIRMED', label: '状态回调', meta: '回写已确认' }
+]
+const currentDraftIndex = computed(() => flowDecision.value?.action === 'reject' ? -1 : draftSteps.findIndex(step => step.key === flowDecision.value?.draftStatus))
+const lifecycleStatusLabel = computed(() => flowDecision.value?.action === 'reject' ? '已驳回' : flowOutcome.value ? '结局已登记' : draftSteps[currentDraftIndex.value]?.label ?? '待处理')
+const nextDraftActionLabel = computed(() => ({ CREATED: '加入可靠写入任务', WRITE_QUEUED: '模拟 HIS 创建草稿', HIS_DRAFT_CREATED: '接收 HIS 状态回调' } as Record<string,string>)[String(flowDecision.value?.draftStatus)] ?? '继续')
+const nextLifecycleHint = computed(() => flowOutcome.value ? '当前患者已经成为科研候选记录，可进入科研工作台重新生成队列。' : currentDraftIndex.value === draftSteps.length - 1 ? '回写状态已确认，请登记实际执行用药和患者结局。' : '按顺序推进草稿状态，每一步都会写入前端审计事件。')
 const selectedBlocked = computed(() => Boolean(selectedCandidate.value?.blocked))
 const blockingAlerts = computed(() => store.payload?.alerts.filter(alert => alert.blocking || alert.level === 'block') ?? [])
 const strongAlerts = computed(() => store.payload?.alerts.filter(alert => alert.level === 'strong') ?? [])
@@ -696,8 +748,44 @@ async function submit(action: 'adopt' | 'modify' | 'reject') {
   if (store.decisionResult) decisionMode.value = null
 }
 
+function advanceDraft() {
+  flowActionError.value = ''
+  try {
+    flow.advanceDraft(encounterId.value)
+    if (flowDecision.value) store.decisionResult = { ...flowDecision.value, prescriptionDraftId: flowDecision.value.draftId }
+  } catch (error) {
+    flowActionError.value = error instanceof Error ? error.message : '草稿状态推进失败'
+  }
+}
+
+function openOutcomeDialog() {
+  outcomeForm.value.actualRegimen = flowDecision.value?.finalRegimen ?? ''
+  outcomeDialogVisible.value = true
+}
+
+function saveOutcome() {
+  flowActionError.value = ''
+  try {
+    flow.recordOutcome(encounterId.value, { ...outcomeForm.value })
+    outcomeDialogVisible.value = false
+  } catch (error) {
+    flowActionError.value = error instanceof Error ? error.message : '结局记录失败'
+  }
+}
+
+function responseLabel(value: OutcomeRecord['treatmentResponse']) {
+  return ({ improved: '治疗反应改善', stable: '治疗反应稳定', worsened: '治疗反应恶化', unknown: '治疗反应未知' } as const)[value]
+}
+
 watch(() => store.selectedCandidateId, () => {
   if (store.selectedCandidate) store.modifyText = store.selectedCandidate.regimen
+})
+
+watch(() => flow.revision, async (revision, previous) => {
+  if (!previous || !revision) return
+  await store.loadWorklist()
+  if (!store.worklist.some(item => item.encounterId === encounterId.value)) encounterId.value = store.worklist[0]?.encounterId ?? encounterId.value
+  await load()
 })
 
 onMounted(async () => {

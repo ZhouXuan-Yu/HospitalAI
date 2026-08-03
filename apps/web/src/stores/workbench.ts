@@ -19,6 +19,7 @@ import {
   type WorklistItem
 } from '../services/coreApi'
 import { previewAdrReviews, previewKnowledgeSubmissions, previewWorkbench, previewWorklist } from '../data/previewData'
+import { useFlowSimulationStore } from './flowSimulation'
 
 const uiPreviewOnly = import.meta.env.VITE_UI_PREVIEW === 'true'
 
@@ -55,16 +56,26 @@ export const useWorkbenchStore = defineStore('workbench', {
     async loadWorklist() {
       this.error = ''
       if (uiPreviewOnly) {
-        this.worklist = previewWorklist
+        const flow = useFlowSimulationStore()
+        await flow.ensureScenario()
+        this.worklist = flow.worklist
         this.previewMode = true
         return
       }
       try {
         this.worklist = await fetchWorklist()
       } catch (error) {
-        this.worklist = previewWorklist
-        this.previewMode = true
-        this.error = ''
+        try {
+          const flow = useFlowSimulationStore()
+          await flow.ensureScenario()
+          this.worklist = flow.worklist
+          this.previewMode = true
+          this.error = ''
+        } catch {
+          this.worklist = previewWorklist
+          this.previewMode = true
+          this.error = error instanceof Error ? `${error.message}；已使用旧版内置数据` : '已使用旧版内置数据'
+        }
       }
     },
     async load(encounterId: string) {
@@ -72,9 +83,13 @@ export const useWorkbenchStore = defineStore('workbench', {
       this.error = ''
       this.decisionResult = null
       if (uiPreviewOnly) {
-        this.payload = previewWorkbench(encounterId)
+        const flow = useFlowSimulationStore()
+        await flow.ensureScenario()
+        this.payload = JSON.parse(JSON.stringify(flow.getWorkbench(encounterId) ?? flow.scenario?.workbenches[0] ?? previewWorkbench(encounterId))) as WorkbenchPayload
         this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
         this.modifyText = this.payload.candidates[0]?.regimen ?? ''
+        const existingDecision = flow.decisionFor(this.payload.encounter.encounterId)
+        this.decisionResult = existingDecision ? { ...existingDecision, prescriptionDraftId: existingDecision.draftId } : null
         this.previewMode = true
         this.loading = false
         return
@@ -84,7 +99,13 @@ export const useWorkbenchStore = defineStore('workbench', {
         this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
         this.modifyText = this.payload.candidates[0]?.regimen ?? ''
       } catch (error) {
-        this.payload = previewWorkbench(encounterId)
+        const flow = useFlowSimulationStore()
+        try {
+          await flow.ensureScenario()
+        } catch {
+          // The legacy generator remains only as a last-resort degraded state.
+        }
+        this.payload = JSON.parse(JSON.stringify(flow.getWorkbench(encounterId) ?? previewWorkbench(encounterId))) as WorkbenchPayload
         this.selectedCandidateId = this.payload.candidates[0]?.candidateId ?? ''
         this.modifyText = this.payload.candidates[0]?.regimen ?? ''
         this.previewMode = true
@@ -126,6 +147,25 @@ export const useWorkbenchStore = defineStore('workbench', {
       if (!this.payload || !this.selectedCandidateId) return
       this.decisionLoading = true
       this.error = ''
+      if (this.previewMode) {
+        try {
+          const flow = useFlowSimulationStore()
+          const decision = flow.recordDecision({
+            encounterId: this.payload.encounter.encounterId,
+            recommendationId: this.payload.recommendationId,
+            action,
+            candidateId: this.selectedCandidateId,
+            reason,
+            finalRegimen: action === 'modify' ? this.modifyText : this.selectedCandidate?.regimen ?? ''
+          })
+          this.decisionResult = { ...decision, prescriptionDraftId: decision.draftId }
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '前端流程审核失败'
+        } finally {
+          this.decisionLoading = false
+        }
+        return
+      }
       try {
         this.decisionResult = await submitDecision(this.payload.recommendationId, {
           action,
@@ -135,19 +175,7 @@ export const useWorkbenchStore = defineStore('workbench', {
           riskHandling: { uiAcknowledgedAt: new Date().toISOString() }
         })
       } catch (error) {
-        if (this.previewMode) {
-          this.decisionResult = {
-            decisionId: `PREVIEW-DEC-${Date.now()}`,
-            action,
-            prescriptionDraftId: action === 'reject' ? '' : `PREVIEW-DRAFT-${Date.now()}`,
-            draftStatus: action === 'reject' ? 'NO_DRAFT_FOR_REJECTION' : 'SIMULATED_DRAFT_WRITTEN',
-            recommendationStatus: 'preview_decided',
-            blocked: false
-          }
-          this.error = ''
-        } else {
-          this.error = error instanceof Error ? error.message : '审核提交失败'
-        }
+        this.error = error instanceof Error ? error.message : '审核提交失败'
       } finally {
         this.decisionLoading = false
       }
