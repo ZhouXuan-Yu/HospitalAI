@@ -2,6 +2,8 @@ package com.hospitalai.core.repository;
 
 import com.hospitalai.core.model.Dto.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -10,14 +12,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class WorkbenchRepository {
   private final JdbcTemplate jdbc;
+  private final Path artifactRoot;
 
-  public WorkbenchRepository(JdbcTemplate jdbc) {
+  public WorkbenchRepository(JdbcTemplate jdbc, @Value("${hospitalai.artifact-root:build/hospitalai-artifacts}") String artifactRoot) {
     this.jdbc = jdbc;
+    this.artifactRoot = Path.of(artifactRoot).toAbsolutePath().normalize();
   }
 
   public PatientProfile patientForEncounter(String encounterId) {
@@ -755,15 +760,65 @@ public class WorkbenchRepository {
         + "; discharge_outcomes=" + outcomeCount
         + "; missing=" + latestQuality.missingSummary()
         + "; script=" + scriptVersion;
-    String outputHash = sha256(resultSummary);
     String runId = "ANR-" + UUID.randomUUID();
     Instant now = Instant.now();
-    String artifactUri = "local://research/" + cohortId + "/analysis/" + runId + ".json";
+    String artifactUri = artifactUri(cohortId, "analysis", runId + ".json");
+    String artifactContent = """
+        {
+          "artifactType": "research_analysis_run",
+          "cohortId": "%s",
+          "runId": "%s",
+          "scriptVersion": "%s",
+          "statisticPlan": "%s",
+          "inputHash": "%s",
+          "resultSummary": "%s"
+        }
+        """;
+    String finalArtifactContent = artifactContent.formatted(cohortId, runId, escapeJson(scriptVersion), escapeJson(statisticPlan), inputHash, escapeJson(resultSummary));
+    String outputHash = sha256(finalArtifactContent);
+    writeArtifact(artifactUri, finalArtifactContent);
     jdbc.update("""
         INSERT INTO research_analysis_run(run_id, cohort_id, status, script_version, statistic_plan, input_hash, output_hash, result_summary, artifact_uri, started_at, completed_at)
         VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
         """, runId, cohortId, scriptVersion, statisticPlan, inputHash, outputHash, resultSummary, artifactUri, now, now);
+    insertResearchAnalysisTask(cohortId, scriptVersion, statisticPlan, "completed", 1, now, null, now);
     return new ResearchAnalysisRunSummary(runId, cohortId, "completed", scriptVersion, statisticPlan, inputHash, outputHash, resultSummary, artifactUri, now, now);
+  }
+
+  public ResearchAnalysisTaskSummary enqueueResearchAnalysisTask(String cohortId, ResearchAnalysisRunRequest request) {
+    var cohort = cohort(cohortId);
+    if (!"frozen".equals(cohort.status())) {
+      throw new IllegalArgumentException("cohort must be frozen before analysis task enqueue");
+    }
+    Instant now = Instant.now();
+    return insertResearchAnalysisTask(cohortId, blankToDefault(request.scriptVersion(), "fixed-cap-statistics.v1"),
+        blankToDefault(request.statisticPlan(), "CAP cohort descriptive statistics"), "queued", 0, now, null, now);
+  }
+
+  public List<ResearchAnalysisTaskSummary> analysisTasks(String cohortId, String status) {
+    String sql = """
+        SELECT task_id, cohort_id, status, script_version, statistic_plan, attempt_count, next_attempt_at, last_error, created_at, updated_at
+        FROM research_analysis_task
+        WHERE cohort_id = ?
+        """;
+    if (status == null || status.isBlank()) {
+      return jdbc.query(sql + "ORDER BY updated_at DESC", this::mapResearchAnalysisTask, cohortId);
+    }
+    return jdbc.query(sql + "AND status = ? ORDER BY updated_at DESC", this::mapResearchAnalysisTask, cohortId, status);
+  }
+
+  public ResearchAnalysisTaskSummary markResearchAnalysisTaskFailure(String taskId, String errorMessage) {
+    var task = researchAnalysisTask(taskId);
+    int nextAttempt = task.attemptCount() + 1;
+    String nextStatus = nextAttempt >= 3 ? "dead_letter" : "retry_scheduled";
+    Instant now = Instant.now();
+    Instant nextAttemptAt = now.plusSeconds(60L * nextAttempt);
+    jdbc.update("""
+        UPDATE research_analysis_task
+        SET status = ?, attempt_count = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
+        WHERE task_id = ?
+        """, nextStatus, nextAttempt, nextAttemptAt, blankToDefault(errorMessage, "research analysis failed"), now, taskId);
+    return researchAnalysisTask(taskId);
   }
 
   public List<ResearchAnalysisRunSummary> analysisRuns(String cohortId) {
@@ -778,6 +833,29 @@ public class WorkbenchRepository {
         rs.getTimestamp(11) == null ? null : rs.getTimestamp(11).toInstant()), cohortId);
   }
 
+  private ResearchAnalysisTaskSummary insertResearchAnalysisTask(String cohortId, String scriptVersion, String statisticPlan, String status, int attemptCount, Instant nextAttemptAt, String lastError, Instant now) {
+    String taskId = "RAT-" + UUID.randomUUID();
+    jdbc.update("""
+        INSERT INTO research_analysis_task(task_id, cohort_id, status, script_version, statistic_plan, attempt_count, next_attempt_at, last_error, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, taskId, cohortId, status, scriptVersion, statisticPlan, attemptCount, nextAttemptAt, lastError, now, now);
+    return new ResearchAnalysisTaskSummary(taskId, cohortId, status, scriptVersion, statisticPlan, attemptCount, nextAttemptAt, lastError, now, now);
+  }
+
+  private ResearchAnalysisTaskSummary researchAnalysisTask(String taskId) {
+    return jdbc.queryForObject("""
+        SELECT task_id, cohort_id, status, script_version, statistic_plan, attempt_count, next_attempt_at, last_error, created_at, updated_at
+        FROM research_analysis_task
+        WHERE task_id = ?
+        """, this::mapResearchAnalysisTask, taskId);
+  }
+
+  private ResearchAnalysisTaskSummary mapResearchAnalysisTask(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+    return new ResearchAnalysisTaskSummary(
+        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getInt(6),
+        rs.getTimestamp(7).toInstant(), rs.getString(8), rs.getTimestamp(9).toInstant(), rs.getTimestamp(10).toInstant());
+  }
+
   public ResearchExportSummary createDeidentifiedExport(String cohortId, ResearchExportRequest request) {
     var cohort = cohort(cohortId);
     if (!"frozen".equals(cohort.status())) {
@@ -786,16 +864,23 @@ public class WorkbenchRepository {
     int rowCount = jdbc.queryForObject("SELECT COUNT(DISTINCT patient_id) FROM encounters WHERE diagnosis LIKE ?", Integer.class, "%" + cohort.diseaseScope() + "%");
     int variableCount = jdbc.queryForObject("SELECT COUNT(*) FROM research_variable WHERE cohort_id = ?", Integer.class, cohortId);
     String exportId = "EXP-" + UUID.randomUUID();
-    String artifactUri = "local://research/" + cohortId + "/exports/" + exportId + ".jsonl";
+    String artifactUri = artifactUri(cohortId, "exports", exportId + ".jsonl");
     String purpose = blankToDefault(request.purpose(), "research-review");
     String requestedBy = blankToDefault(request.requestedBy(), "research_demo");
-    String dataHash = sha256(cohortId + "|" + rowCount + "|" + variableCount + "|" + purpose);
+    String exportPayload = deidentifiedExportPayload(cohortId, cohort.diseaseScope());
+    String dataHash = sha256(exportPayload);
+    writeArtifact(artifactUri, exportPayload);
     Instant now = Instant.now();
     jdbc.update("""
         INSERT INTO research_deidentified_export(export_id, cohort_id, status, row_count, artifact_uri, data_hash, requested_by, purpose, created_at)
         VALUES (?, ?, 'generated', ?, ?, ?, ?, ?, ?)
         """, exportId, cohortId, rowCount, artifactUri, dataHash, requestedBy, purpose, now);
     return new ResearchExportSummary(exportId, cohortId, "generated", rowCount, artifactUri, dataHash, requestedBy, purpose, now);
+  }
+
+  public ResearchArtifactContent readArtifact(String artifactUri) {
+    String content = readArtifactContent(artifactUri);
+    return new ResearchArtifactContent(artifactUri, sha256(content), content);
   }
 
   public List<ResearchExportSummary> exports(String cohortId) {
@@ -893,6 +978,55 @@ public class WorkbenchRepository {
     return new KnowledgeSubmissionSummary(
         rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
         rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant());
+  }
+
+  private String deidentifiedExportPayload(String cohortId, String diseaseScope) {
+    var rows = jdbc.query("""
+        SELECT e.patient_id, e.encounter_id, e.department, e.diagnosis, e.data_version
+        FROM encounters e
+        WHERE e.diagnosis LIKE ?
+        ORDER BY e.encounter_id
+        """, (rs, row) -> {
+      String subjectKey = sha256(cohortId + "|" + rs.getString(1)).substring(0, 16);
+      return """
+          {"cohortId":"%s","subjectKey":"%s","encounterId":"%s","department":"%s","diseaseScope":"%s","diagnosis":"%s","dataVersion":%d}
+          """.formatted(cohortId, subjectKey, escapeJson(rs.getString(2)), escapeJson(rs.getString(3)), escapeJson(diseaseScope), escapeJson(rs.getString(4)), rs.getInt(5)).trim();
+    }, "%" + diseaseScope + "%");
+    return String.join("\n", rows) + "\n";
+  }
+
+  private String artifactUri(String cohortId, String category, String fileName) {
+    return "local://research/" + cohortId + "/" + category + "/" + fileName;
+  }
+
+  private Path artifactPath(String artifactUri) {
+    String prefix = "local://research/";
+    if (artifactUri == null || !artifactUri.startsWith(prefix)) {
+      throw new IllegalArgumentException("unsupported artifact uri");
+    }
+    Path resolved = artifactRoot.resolve(artifactUri.substring(prefix.length()).replace("/", java.io.File.separator)).normalize();
+    if (!resolved.startsWith(artifactRoot)) {
+      throw new IllegalArgumentException("artifact uri escapes configured root");
+    }
+    return resolved;
+  }
+
+  private void writeArtifact(String artifactUri, String content) {
+    try {
+      Path path = artifactPath(artifactUri);
+      Files.createDirectories(path.getParent());
+      Files.writeString(path, content, StandardCharsets.UTF_8);
+    } catch (java.io.IOException ex) {
+      throw new IllegalStateException("failed to write research artifact", ex);
+    }
+  }
+
+  private String readArtifactContent(String artifactUri) {
+    try {
+      return Files.readString(artifactPath(artifactUri), StandardCharsets.UTF_8);
+    } catch (java.io.IOException ex) {
+      throw new IllegalArgumentException("research artifact not found", ex);
+    }
   }
 
   public void audit(String actor, String action, String objectId, String detail) {
@@ -1028,6 +1162,7 @@ public class WorkbenchRepository {
     snapshot.put("timelineCount", jdbc.queryForObject("SELECT COUNT(*) FROM medication_timeline_event", Integer.class));
     snapshot.put("researchCohortCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_cohort", Integer.class));
     snapshot.put("researchAnalysisRunCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_analysis_run", Integer.class));
+    snapshot.put("researchAnalysisTaskCount", jdbc.queryForObject("SELECT COUNT(*) FROM research_analysis_task", Integer.class));
     snapshot.put("knowledgeSubmissionCount", jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_submission", Integer.class));
     return snapshot;
   }
@@ -1043,5 +1178,12 @@ public class WorkbenchRepository {
     } catch (NoSuchAlgorithmException ex) {
       throw new IllegalStateException("SHA-256 unavailable", ex);
     }
+  }
+
+  private static String escapeJson(String value) {
+    if (value == null) {
+      return "";
+    }
+    return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
   }
 }

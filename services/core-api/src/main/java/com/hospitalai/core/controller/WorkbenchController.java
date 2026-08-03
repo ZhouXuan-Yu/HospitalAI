@@ -28,6 +28,8 @@ import com.hospitalai.core.model.Dto.KnowledgeSubmissionRequest;
 import com.hospitalai.core.model.Dto.KnowledgeSubmissionSummary;
 import com.hospitalai.core.model.Dto.ResearchAnalysisRunRequest;
 import com.hospitalai.core.model.Dto.ResearchAnalysisRunSummary;
+import com.hospitalai.core.model.Dto.ResearchAnalysisTaskSummary;
+import com.hospitalai.core.model.Dto.ResearchArtifactContent;
 import com.hospitalai.core.model.Dto.ResearchCohortRequest;
 import com.hospitalai.core.model.Dto.ResearchCohortSummary;
 import com.hospitalai.core.model.Dto.ResearchExportRequest;
@@ -35,6 +37,7 @@ import com.hospitalai.core.model.Dto.ResearchExportSummary;
 import com.hospitalai.core.model.Dto.ResearchQualityCheckSummary;
 import com.hospitalai.core.model.Dto.ResearchReportDraftSummary;
 import com.hospitalai.core.model.Dto.ResearchReportReviewRequest;
+import com.hospitalai.core.model.Dto.ResearchTaskFailureRequest;
 import com.hospitalai.core.model.Dto.ResearchVariableRequest;
 import com.hospitalai.core.model.Dto.ResearchVariableSummary;
 import com.hospitalai.core.model.Dto.RuleLifecycleResponse;
@@ -310,6 +313,31 @@ public class WorkbenchController {
     return repository.analysisRuns(cohortId);
   }
 
+  @GetMapping("/research/cohorts/{cohortId}/analysis-tasks")
+  public List<ResearchAnalysisTaskSummary> analysisTasks(@PathVariable String cohortId, @RequestParam(required = false) String status) {
+    return repository.analysisTasks(cohortId, status);
+  }
+
+  @PostMapping("/research/cohorts/{cohortId}/analysis-tasks")
+  public ResearchAnalysisTaskSummary enqueueAnalysisTask(@PathVariable String cohortId, @RequestBody(required = false) ResearchAnalysisRunRequest request) {
+    ResearchAnalysisRunRequest normalized = request == null
+        ? new ResearchAnalysisRunRequest("fixed-cap-statistics.v1", "CAP cohort descriptive statistics", "python-worker")
+        : request;
+    var task = repository.enqueueResearchAnalysisTask(cohortId, normalized);
+    repository.audit("research_demo", "RESEARCH_ANALYSIS_TASK_QUEUED", task.taskId(), task.scriptVersion());
+    return task;
+  }
+
+  @PostMapping("/research/analysis-tasks/{taskId}/mark-failed")
+  public ResearchAnalysisTaskSummary markAnalysisTaskFailed(@PathVariable String taskId, @RequestBody(required = false) ResearchTaskFailureRequest request) {
+    String message = request == null || request.errorMessage() == null || request.errorMessage().isBlank()
+        ? "research analysis task failed"
+        : request.errorMessage();
+    var task = repository.markResearchAnalysisTaskFailure(taskId, message);
+    repository.audit("research_worker", "RESEARCH_ANALYSIS_TASK_FAILED", taskId, message);
+    return task;
+  }
+
   @PostMapping("/research/cohorts/{cohortId}/analysis-runs")
   public ResearchAnalysisRunSummary runAnalysis(@PathVariable String cohortId, @RequestBody(required = false) ResearchAnalysisRunRequest request) {
     ResearchAnalysisRunRequest normalized = request == null
@@ -333,6 +361,11 @@ public class WorkbenchController {
     var export = repository.createDeidentifiedExport(cohortId, normalized);
     repository.audit("research_demo", "RESEARCH_DEIDENTIFIED_EXPORT_CREATED", export.exportId(), export.dataHash());
     return export;
+  }
+
+  @GetMapping("/research/artifacts")
+  public ResearchArtifactContent researchArtifact(@RequestParam String uri) {
+    return repository.readArtifact(uri);
   }
 
   @GetMapping("/research/cohorts/{cohortId}/reports")

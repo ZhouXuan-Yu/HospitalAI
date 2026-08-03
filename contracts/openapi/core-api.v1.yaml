@@ -163,6 +163,23 @@ paths:
       responses:
         "200":
           description: Completed analysis run with input and output hashes.
+  /api/research/cohorts/{cohortId}/analysis-tasks:
+    get:
+      summary: List reliable research analysis tasks for a cohort.
+      responses:
+        "200":
+          description: Research analysis task queue.
+    post:
+      summary: Enqueue a reliable research analysis task for a frozen cohort.
+      responses:
+        "200":
+          description: Queued research analysis task.
+  /api/research/analysis-tasks/{taskId}/mark-failed:
+    post:
+      summary: Record a research analysis task failure and schedule retry or dead-letter.
+      responses:
+        "200":
+          description: Research analysis retry state.
   /api/research/cohorts/{cohortId}/exports:
     get:
       summary: List de-identified research export packages for a cohort.
@@ -174,6 +191,12 @@ paths:
       responses:
         "200":
           description: Generated de-identified export package.
+  /api/research/artifacts:
+    get:
+      summary: Read a local research artifact by auditable URI and return content hash.
+      responses:
+        "200":
+          description: Research artifact content and SHA-256 hash.
   /api/research/cohorts/{cohortId}/reports:
     get:
       summary: List report drafts for a cohort.

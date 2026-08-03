@@ -11,3 +11,5 @@ spring:
       encoding: UTF-8
       schema-locations: classpath:schema-h2.sql
       data-locations: classpath:data-h2.sql
+hospitalai:
+  artifact-root: ${HOSPITALAI_ARTIFACT_ROOT:build/hospitalai-artifacts}

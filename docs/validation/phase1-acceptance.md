@@ -318,3 +318,37 @@ Remaining M4 gaps:
 - Java reliable Worker invocation of the Python statistics endpoint and real artifact file persistence are still pending.
 - ADR escalation into pharmacist or knowledge-review workflow is still pending.
 - Formal knowledge UI, citation controls and finer role permissions are still pending.
+
+## 2026-08-03 M4 Artifact Persistence And Analysis Task Validation
+
+Commands:
+
+```powershell
+$env:JAVA_HOME='C:\Users\ZhouXuan\.jdks\jbr-17.0.14'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; .\.tools\apache-maven-3.9.9\bin\mvn.cmd -f services/core-api/pom.xml test
+npm run test:contracts
+..\..\.venv-ai\Scripts\python.exe -m pytest tests -q
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
+
+Results:
+
+- Java: 17 passed, 0 failed.
+- Contract validation: passed.
+- Python: 5 passed, 0 failed.
+- Vue store: 1 passed, 0 failed.
+- Web build: passed; Vite emitted only the existing chunk-size warning.
+
+New evidence:
+
+- Research analysis writes a real JSON artifact under configurable `hospitalai.artifact-root`, returns `local://research/...` URI and records the artifact SHA-256 as `outputHash`.
+- De-identified export writes a JSONL artifact with `subjectKey` instead of direct patient identity, records URI and data hash.
+- `GET /api/research/artifacts?uri=...` reads back artifact content and hash, with URI prefix/root escape protection in the repository.
+- `POST /api/research/cohorts/{cohortId}/analysis-tasks` enqueues a reliable analysis task for a frozen cohort.
+- `POST /api/research/analysis-tasks/{taskId}/mark-failed` records failure, increments attempts and schedules retry/dead-letter status.
+- `.env.example` now exposes `HOSPITALAI_ARTIFACT_ROOT`; generated local artifacts are ignored by Git.
+
+Remaining M4/M5 gaps:
+
+- Background Java Worker lease/claim loop and live invocation of the FastAPI statistics endpoint are still pending.
+- Artifact download authorization, formal knowledge UI, ADR escalation, security hardening and operations gates remain for later milestones.

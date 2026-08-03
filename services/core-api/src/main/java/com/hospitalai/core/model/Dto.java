@@ -52,10 +52,13 @@ public final class Dto {
   public record ResearchQualityCheckSummary(String checkId, String cohortId, String status, int totalSubjects, String missingSummary, String issueSummary, Instant checkedAt) {}
   public record ResearchAnalysisRunRequest(String scriptVersion, String statisticPlan, String runner) {}
   public record ResearchAnalysisRunSummary(String runId, String cohortId, String status, String scriptVersion, String statisticPlan, String inputHash, String outputHash, String resultSummary, String artifactUri, Instant startedAt, Instant completedAt) {}
+  public record ResearchAnalysisTaskSummary(String taskId, String cohortId, String status, String scriptVersion, String statisticPlan, int attemptCount, Instant nextAttemptAt, String lastError, Instant createdAt, Instant updatedAt) {}
   public record ResearchExportRequest(String requestedBy, String purpose) {}
   public record ResearchExportSummary(String exportId, String cohortId, String status, int rowCount, String artifactUri, String dataHash, String requestedBy, String purpose, Instant createdAt) {}
+  public record ResearchArtifactContent(String artifactUri, String sha256, String content) {}
   public record ResearchReportDraftSummary(String reportId, String cohortId, String status, String title, String markdownBody, Instant generatedAt, Instant reviewedAt, String reviewNote) {}
   public record ResearchReportReviewRequest(String reviewNote) {}
+  public record ResearchTaskFailureRequest(String errorMessage) {}
   public record KnowledgeSubmissionRequest(String reportId, String submissionType, String submittedBy) {}
   public record KnowledgeSubmissionSummary(String submissionId, String reportId, String status, String submissionType, String title, String submittedBy, Instant submittedAt, Instant publishedAt) {}
   public record KnowledgeReviewRequest(String reviewerRole, String decision, String note) {}

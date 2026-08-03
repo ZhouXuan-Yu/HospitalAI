@@ -17,3 +17,4 @@ ai:
 hospitalai:
   dev-user: ${HOSPITALAI_DEV_USER:dr_chen}
   dev-role: ${HOSPITALAI_DEV_ROLE:doctor}
+  artifact-root: ${HOSPITALAI_ARTIFACT_ROOT:build/hospitalai-artifacts}

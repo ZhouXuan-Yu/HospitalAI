@@ -170,7 +170,31 @@ class TrackingAndResearchAssetsTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("frozen")));
 
-    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/analysis-runs")
+    String taskJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/analysis-tasks")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "scriptVersion": "fixed-cap-statistics.v1",
+                  "statisticPlan": "CAP 队列描述性统计",
+                  "runner": "python-worker"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("queued")))
+        .andReturn().getResponse().getContentAsString();
+    String taskId = mapper.readTree(taskJson).get("taskId").asText();
+
+    mvc.perform(post("/api/research/analysis-tasks/" + taskId + "/mark-failed")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "errorMessage": "Python statistics endpoint timeout" }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("retry_scheduled")))
+        .andExpect(jsonPath("$.attemptCount", is(1)))
+        .andExpect(jsonPath("$.lastError", is("Python statistics endpoint timeout")));
+
+    String analysisJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/analysis-runs")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {
@@ -182,16 +206,31 @@ class TrackingAndResearchAssetsTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("completed")))
         .andExpect(jsonPath("$.inputHash", containsString("")))
-        .andExpect(jsonPath("$.resultSummary", containsString("fixed-cap-statistics.v1")));
+        .andExpect(jsonPath("$.resultSummary", containsString("fixed-cap-statistics.v1")))
+        .andReturn().getResponse().getContentAsString();
+    String analysisUri = mapper.readTree(analysisJson).get("artifactUri").asText();
 
-    mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/exports")
+    mvc.perform(get("/api/research/artifacts").param("uri", analysisUri))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", containsString("research_analysis_run")))
+        .andExpect(jsonPath("$.sha256", is(mapper.readTree(analysisJson).get("outputHash").asText())));
+
+    String exportJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/exports")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "requestedBy": "researcher_demo", "purpose": "统计复核" }
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status", is("generated")))
-        .andExpect(jsonPath("$.artifactUri", containsString("local://research/COHORT-CAP-002/exports/")));
+        .andExpect(jsonPath("$.artifactUri", containsString("local://research/COHORT-CAP-002/exports/")))
+        .andReturn().getResponse().getContentAsString();
+    String exportUri = mapper.readTree(exportJson).get("artifactUri").asText();
+
+    mvc.perform(get("/api/research/artifacts").param("uri", exportUri))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content", containsString("subjectKey")))
+        .andExpect(jsonPath("$.content", containsString("COHORT-CAP-002")))
+        .andExpect(jsonPath("$.sha256", is(mapper.readTree(exportJson).get("dataHash").asText())));
 
     String reportJson = mvc.perform(post("/api/research/cohorts/COHORT-CAP-002/reports"))
         .andExpect(status().isOk())

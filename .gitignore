@@ -13,6 +13,7 @@ apps/web/test-results/
 # Java
 target/
 services/core-api/target/
+services/core-api/build/
 
 # Python
 .venv/
