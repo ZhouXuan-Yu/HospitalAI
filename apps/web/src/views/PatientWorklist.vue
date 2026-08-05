@@ -46,7 +46,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CircleCheck, Clock3, MoreHorizontal, RefreshCw, Search, ShieldX, TriangleAlert, UserRoundSearch, UsersRound } from 'lucide-vue-next'
-import { mockFetchWorklist } from '../services/mockApi'
+import { loadWorklist } from '../services/dataAccess'
 import type { WorklistItem } from '../services/coreApi'
 
 const router = useRouter()
@@ -59,7 +59,7 @@ const rows = ref<WorklistItem[]>([])
 async function loadWorklist() {
   loading.value = true
   try {
-    rows.value = await mockFetchWorklist()
+    rows.value = await loadWorklist()
   } finally {
     loading.value = false
   }

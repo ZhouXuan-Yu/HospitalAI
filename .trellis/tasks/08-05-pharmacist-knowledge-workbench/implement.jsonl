@@ -1,1 +1,4 @@
 {"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端页面结构/降级链/命名约定"}
+{"file": ".trellis/spec/guides/medical-safety.md", "reason": "药师复核是硬规则后强提醒,阻断不能失效"}
+{"file": ".trellis/spec/guides/project-boundary.md", "reason": "核心功能范围与禁止事项"}
