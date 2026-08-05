@@ -5,8 +5,8 @@
 import { onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { ArrowLeftRight, BookOpen, CircleCheck, Database, FileSearch, GitCompareArrows, HeartPulse, KeyRound, Network, Plus, RefreshCw, ServerCog, Settings, Settings2, TriangleAlert } from 'lucide-vue-next'
-import { mockFetchConnectors, mockFetchInboundEvents } from '../services/mockApi'
-import type { ConnectorItem, InboundEventItem } from '../services/mockApi'
+import { loadConnectors, loadInboundEvents } from '../services/dataAccess'
+import type { ConnectorItem, InboundEventItem } from '../services/dataAccess'
 
 const iconMap = { database: Database, 'heart-pulse': HeartPulse, 'book-open': BookOpen, 'key-round': KeyRound }
 type ViewConnector = Omit<ConnectorItem, 'icon'> & { icon: Component }

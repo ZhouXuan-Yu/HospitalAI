@@ -10,13 +10,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Circle, CircleCheck, FileCheck2, FileText, FileWarning, FolderSearch, Library, ListFilter, LoaderCircle, MapPin, MoreHorizontal, RefreshCw, ScanSearch, ScanText, Search, Upload, UploadCloud } from 'lucide-vue-next'
-import { mockFetchEvidenceDocs, mockFetchEvidenceChunks, mockFetchEvidenceProcessingSteps } from '../services/mockApi'
-import type { EvidenceDoc, EvidenceChunk, ProcessingStep } from '../services/mockApi'
+import { loadEvidenceDocs, loadEvidenceChunks, loadEvidenceProcessingSteps } from '../services/dataAccess'
+import type { EvidenceDoc, EvidenceChunk, ProcessingStep } from '../services/dataAccess'
 const query=ref(''),type=ref('all'),status=ref('all'),selectedId=ref('EV-CAP-001'),inspectorTab=ref('chunks'),uploadVisible=ref(false),loading=ref(false)
 const docs=ref<EvidenceDoc[]>([])
 const chunks=ref<EvidenceChunk[]>([])
 const processingSteps=ref<ProcessingStep[]>([])
-async function loadEvidence(){loading.value=true;try{const [d,c,s]=await Promise.all([mockFetchEvidenceDocs(),mockFetchEvidenceChunks(),mockFetchEvidenceProcessingSteps()]);docs.value=d;chunks.value=c;processingSteps.value=s}finally{loading.value=false}}
+async function loadEvidence(){loading.value=true;try{const [d,c,s]=await Promise.all([loadEvidenceDocs(),loadEvidenceChunks(),loadEvidenceProcessingSteps()]);docs.value=d;chunks.value=c;processingSteps.value=s}finally{loading.value=false}}
 const filteredDocs=computed(()=>docs.value.filter(d=>(!query.value||`${d.title}${d.id}${d.scope}`.includes(query.value))&&(type.value==='all'||d.type===type.value)&&(status.value==='all'||d.status===status.value)))
 const selected=computed(()=>docs.value.find(d=>d.id===selectedId.value)??docs.value[0])
 onMounted(loadEvidence)

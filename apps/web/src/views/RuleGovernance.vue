@@ -16,14 +16,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ChevronRight, CircleAlert, CircleCheck, Clock3 as ClipboardClock, Copy, ExternalLink, FileDown, GitBranch, MoreHorizontal, Plus, Search, ShieldX, TestTube2, Upload } from 'lucide-vue-next'
-import { mockFetchRules } from '../services/mockApi'
-import type { RuleItem } from '../services/mockApi'
+import { loadRules } from '../services/dataAccess'
+import type { RuleItem } from '../services/dataAccess'
 const query=ref(''),status=ref('all'),severity=ref('all'),drawerVisible=ref(false),editVisible=ref(false),activeRule=ref<RuleItem|null>(null),loading=ref(false)
 const rules=ref<RuleItem[]>([])
-async function loadRules(){loading.value=true;try{rules.value=await mockFetchRules()}finally{loading.value=false}}
+async function fetchRules(){loading.value=true;try{rules.value=await loadRules()}finally{loading.value=false}}
 const filteredRules=computed(()=>rules.value.filter(r=>(!query.value||`${r.id}${r.name}${r.evidence}`.includes(query.value))&&(status.value==='all'||r.status===status.value)&&(severity.value==='all'||r.severityClass===severity.value)))
 function openRule(rule:RuleItem){activeRule.value=rule;drawerVisible.value=true}
-onMounted(loadRules)
+onMounted(fetchRules)
 </script>
 <style scoped>
 .rules-panel{overflow-x:auto}.rules-panel table{min-width:1120px}.rules-panel td:first-child strong,.rule-name,.rules-panel td small{display:block}.rule-name{margin-top:3px;font-size:10px}.rules-panel td small{margin-top:3px;color:#73828a;font-size:8px}.evidence-ref{display:flex;align-items:center;gap:3px;padding:0;border:0;background:transparent;color:#286a88;font-size:9px;cursor:pointer}.table-actions{display:flex;gap:5px}.rule-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.rule-detail-heading h2{margin:7px 0 3px;font-size:16px}.rule-detail-heading p{margin:0;color:#6b7b83;font-size:9px}.rule-detail h3{margin:18px 0 7px;font-size:11px}.rule-detail pre{margin:0;padding:12px;overflow:auto;border-radius:5px;background:#17252d;color:#dbe7e9;font-size:10px;line-height:1.55}.result-preview{display:flex;gap:8px;padding:10px;border-left:4px solid #bd2f37;background:#fff1f1;color:#8d2229}.result-preview>div{display:grid;gap:3px}.result-preview strong{font-size:10px}.result-preview span{font-size:8px}.approval-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:7px}.approval-flow>div{display:flex;align-items:center;gap:6px;padding:8px;border:1px solid #d8e1e4;border-radius:4px}.approval-flow>div.done{color:#286c54}.approval-flow>div span{display:grid;gap:2px}.approval-flow strong{font-size:9px}.approval-flow small{color:#6f7f87;font-size:7px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-grid .el-select{width:100%}
