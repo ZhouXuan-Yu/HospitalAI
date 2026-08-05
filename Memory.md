@@ -125,6 +125,17 @@
 11. 下一步优先补 M4/M5 剩余项：自动定时 Worker 调度和严格租约抢占、独立药师/知识库工作台、引用控制、artifact 下载授权、安全扫描、备份恢复和压测。
 12. 随后继续 M5：OIDC/SSO、短期签名上下文票据、完整 RBAC/ABAC、审计不可删硬化、超级管理员双重约束、OpenTelemetry、备份恢复演练、安全扫描、性能压测、最终需求追踪矩阵和验收结论。
 
+## 2026-08-05 引入 Trellis 工作流框架
+
+1. 已全局安装 `@mindfoldhq/trellis` 0.6.12,并在项目根执行 `trellis init --claude -u ZhouXuan`。
+2. 生成了 `.trellis/`(workflow.md 三阶段 Plan/Execute/Finish、spec/、tasks/、workspace/、scripts/)和 `.claude/`(6 个 skills、3 个子代理、hooks、`/trellis:finish-work` 命令)。
+3. 已将项目的医学安全边界、科研合规、项目边界、文档风格沉淀进 `.trellis/spec/guides/`,并挂进 `guides/index.md` 顶部的"项目必读"表;SessionStart 每次会话注入该索引,`trellis-before-dev` 每次开发前强制读取。
+4. 已按真实代码约定填充 `.trellis/spec/backend/`(core-api 分层、医学规则、剂量纪律、异步任务表)和 `.trellis/spec/ai-service/`(职责边界、检索流水线、统计纪律、降级设计)。
+5. 已用真实约定填充 `.trellis/spec/frontend/`(目录结构、组件模式、状态管理、类型安全、质量约定)。
+6. `get_context.py --mode packages` 已识别全部 spec 层:ai-service、backend、frontend。
+7. 注意:仓库存在一个后台进程持续向 `apps/web/src/data/` 写 mock JSON、截图 validation 文件,并删除了 `apps/web/screenshot-pages.mjs`——非 trellis 或本会话产生,需确认来源。
+8. 后续开发任务应先走 trellis 任务流程:`task.py create` → 写 prd.md → 过验收门 → `task.py archive`。
+
 ## 2026-08-03 新增商业化交付基线
 
 用户已要求按“完整的大型商业千万级项目”作为对标基准进行补充，并明确开发实现阶段不得依赖 Mock 或静态假数据。最新口径为：
@@ -170,3 +181,13 @@
 4. 固定统计新增按用药暴露方案、年龄层和性别的描述性分层；系统明确禁止将未经调整的比例自动解释成“某药更适合某类患者”。
 5. DOCX 包含结构式摘要、方法、纳排、伦理注册、基线、暴露、结局、分层、偏倚、局限、结论、数据可用性、复现和投稿门禁；合成数据报告醒目标记不可投稿。
 6. 制品规范见 `docs/08_RESEARCH_PUBLICATION_PACKAGE.md`；生产环境仍需后端制品签名、下载授权、不可变留存和真实科研数据治理。
+
+## 2026-08-05 全页面假数据驱动交付状态
+
+1. 全部 12 个页面已统一为假数据驱动：8 个此前硬编码页面（患者工作列表、患者用药全景、长期用药追踪、风险复核队列、临床规则管理、证据资料中心、接口与同步、审计日志）已迁出组件内静态数据。
+2. 假数据按用户要求采用 JSON 固定格式直接导入：`apps/web/src/data/` 下 `evidence.json`、`rules.json`、`integration.json`、`audit.json`、`patients.json`、`timeline.json`、`pharmacist.json`，统一带 `hospitalai.mock-data.v1` Schema 标识和 `synthetic=true`。
+3. 新增统一 mock API 层 `apps/web/src/services/mockApi.ts`，按 `coreApi.ts` 已定义的接口类型封装异步加载（模拟 100-400ms 延迟），页面通过 `onMounted` 触发；后续替换真实 Core API 时只需改 service 层函数体。
+4. 核心双流程（处方辅助决策 + 科研八阶段 + 知识审核）仍由 flowSimulation store 驱动，未受影响。
+5. 验证：`npm run build`（vue-tsc + vite build）通过；Vitest 5/5 通过；Playwright 12/12 通过；9 个迁移页面逐页验证数据渲染正确；新增截图在 `apps/web/docs/validation/{overview,timeline,pharmacist,rules,evidence,integration,audit}-1920.png`。
+6. 生产接入映射：mockApi 与 coreApi 同构，后续 `VITE_UI_PREVIEW=false` 时页面切到 `coreApi.ts` 真实请求即可。
+

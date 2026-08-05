@@ -4,48 +4,59 @@
 
 ---
 
-## Overview
+## Type System
 
-<!--
-Document your project's type safety conventions here.
-
-Questions to answer:
-- What type system do you use?
-- How are types organized?
-- What validation library do you use?
-- How do you handle type inference?
--->
-
-(To be filled by the team)
+- **TypeScript**(冻结),strict 模式 + `vue-tsc --noEmit` 构建检查。
+- 类型定义在 service 或 types 文件导出;`types/flowScenario.ts` 复引 coreApi 类型。
 
 ---
 
 ## Type Organization
 
-<!-- Where types are defined, shared types vs local types -->
+```text
+types/flowScenario.ts   # 场景类型,复引 coreApi 类型
+services/coreApi.ts     # API 响应类型
+```
 
-(To be filled by the team)
-
----
-
-## Validation
-
-<!-- Runtime validation patterns (Zod, Yup, io-ts, etc.) -->
-
-(To be filled by the team)
+- 共享类型放 `types/`,页面局部类型内联。
+- 跨 service 共享的类型在 `types/` 定义,不各写一份。
 
 ---
 
-## Common Patterns
+## Runtime Validation
 
-<!-- Type utilities, generics, type guards -->
+- **JSON Schema + Ajv2020 运行时校验**:
 
-(To be filled by the team)
+```ts
+import Ajv2020 from 'ajv/dist/2020'
+import scenarioSchema from '@/contracts/flowScenario.schema.json'
+
+const ajv = new Ajv2020()
+const validate = ajv.compile<FlowScenario>(scenarioSchema)
+```
+
+- schema 用 `"additionalProperties": false` + `required` 强制结构。
+- 读 localStorage / 外部 JSON 必须过 Ajv,失败则清除/拒绝。
 
 ---
 
 ## Forbidden Patterns
 
-<!-- any, type assertions, etc. -->
+- **基本不用 `any`**。
+- 用 `Record<string, unknown>` 表示未知对象。
+- 降级路径才用 `as` 断言(`workbench.ts` 的 preview 回退)。
+- 避免双下划线开头的空壳类型。
 
-(To be filled by the team)
+---
+
+## Common Patterns
+
+```ts
+// 未知对象 → Record
+const payload = JSON.parse(raw) as Record<string, unknown>
+
+// 类型守卫 / satisfies
+const ok = { ... } satisfies FlowScenario
+```
+
+- 新增字段要同步 JSON Schema 与 TypeScript 类型,不能只改一处。
