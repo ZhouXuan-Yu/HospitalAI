@@ -1,6 +1,6 @@
 <template>
   <div class="product-page">
-    <header class="page-heading"><div><h1>风险复核队列</h1><p>统一处理强提醒、跨科室冲突、严重 ADR 与处方草稿复核，阻断风险不能被任何角色绕过。</p></div><div class="page-heading-actions"><el-button :icon="SlidersHorizontal">队列配置</el-button><el-button type="primary" :icon="RefreshCw">刷新待办</el-button></div></header>
+    <header class="page-heading"><div><h1>风险复核队列</h1><p>统一处理强提醒、跨科室冲突、严重 ADR 与处方草稿复核，阻断风险不能被任何角色绕过。</p></div><div class="page-heading-actions"><el-button :icon="SlidersHorizontal">队列配置</el-button><el-button type="primary" :icon="RefreshCw" :loading="loading" @click="loadReviews">刷新待办</el-button></div></header>
     <section class="summary-strip"><div class="summary-item"><div class="summary-icon danger"><ShieldX :size="18" /></div><div><strong>2</strong><span>阻断协同任务</span></div></div><div class="summary-item"><div class="summary-icon warning"><TriangleAlert :size="18" /></div><div><strong>4</strong><span>强提醒待复核</span></div></div><div class="summary-item"><div class="summary-icon blue"><MessagesSquare :size="18" /></div><div><strong>2</strong><span>跨科室沟通中</span></div></div><div class="summary-item"><div class="summary-icon"><Clock3 :size="18" /></div><div><strong>18 min</strong><span>平均待处理时长</span></div></div></section>
     <div class="toolbar-band"><el-input v-model="query" :prefix-icon="Search" placeholder="患者、药品、任务编号" clearable /><el-select v-model="queue"><el-option label="全部队列" value="all" /><el-option label="处方风险复核" value="prescription" /><el-option label="ADR 复核" value="adr" /><el-option label="跨科室协同" value="collaboration" /></el-select><el-select v-model="priority"><el-option label="全部优先级" value="all" /><el-option label="紧急" value="urgent" /><el-option label="高" value="high" /><el-option label="普通" value="normal" /></el-select><span class="toolbar-spacer"></span><el-checkbox v-model="onlyMine">仅看分配给我</el-checkbox></div>
     <div class="split-workspace review-workspace">
@@ -10,19 +10,32 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { BookOpenCheck, CheckCircle2, Clock3, ExternalLink, GitBranch, GitCompareArrows, MessagesSquare, MoreHorizontal, Paperclip, Pill, RefreshCw, Search, Send, ShieldAlert, ShieldX, SlidersHorizontal, TriangleAlert } from 'lucide-vue-next'
-const query=ref(''),queue=ref('all'),priority=ref('all'),onlyMine=ref(false),activeTab=ref('pending'),selectedId=ref('PR-2026-0084'),detailTab=ref('risk'),message=ref(''),resolution=ref(''),resolutionNote=ref('')
-const tabs=[{label:'待处理',value:'pending',count:8},{label:'沟通中',value:'active',count:2},{label:'我已处理',value:'done',count:12}]
-const items=[
- {id:'PR-2026-0084',level:'强提醒',levelClass:'warning',title:'跨科室重复用药需复核',patient:'合成患者D',encounter:'E004',department:'呼吸内科',drugs:'阿奇霉素 · 头孢曲松',wait:'等待 12 分钟',kind:'跨科室协同',createdAt:'2026-08-03 10:12',ruleVersion:'HR-XDEPT-001 v2026.08'},
- {id:'ADR-REV-003',level:'高优先级',levelClass:'danger',title:'严重不良反应信号待确认',patient:'合成患者C',encounter:'E003',department:'呼吸内科',drugs:'左氧氟沙星',wait:'等待 18 分钟',kind:'ADR 复核',createdAt:'2026-08-03 10:06',ruleVersion:'HR-ADR-001 v2026.08'},
- {id:'PR-2026-0081',level:'强提醒',levelClass:'warning',title:'肾功能剂量调整待核对',patient:'合成患者K',encounter:'E011',department:'肾内科',drugs:'头孢曲松',wait:'等待 26 分钟',kind:'处方复核',createdAt:'2026-08-03 09:58',ruleVersion:'HR-DOSE-004 v2026.07'},
- {id:'PR-2026-0079',level:'一般',levelClass:'info',title:'关键监测项尚未补充',patient:'合成患者E',encounter:'E005',department:'呼吸内科',drugs:'左氧氟沙星',wait:'等待 31 分钟',kind:'信息补充',createdAt:'2026-08-03 09:50',ruleVersion:'HR-MISS-001 v2026.08'}
-]
-const filteredItems=computed(()=>items.filter(item=>!query.value||`${item.patient}${item.title}${item.drugs}${item.id}`.includes(query.value)))
-const selected=computed(()=>items.find(item=>item.id===selectedId.value)??items[0])
-const communications=[{actor:'系统',time:'10:12',text:'检测到心内科当前有效阿奇霉素医嘱，已创建跨科室协同任务。'},{actor:'陈医生·呼吸内科',time:'10:16',text:'拟采用联合方案，请心内科确认原医嘱的继续必要性。'},{actor:'李医生·心内科',time:'10:22',text:'已收到，正在核对心内科医嘱目的与预计停用时间。'}]
+import { mockFetchPharmacistReviews } from '../services/mockApi'
+import type { PharmacistReviewItem, PharmacistPayload } from '../services/mockApi'
+
+const query=ref(''),queue=ref('all'),priority=ref('all'),onlyMine=ref(false),activeTab=ref('pending'),selectedId=ref('PR-2026-0084'),detailTab=ref('risk'),message=ref(''),resolution=ref(''),resolutionNote=ref(''),loading=ref(false)
+const tabs=ref<Array<{label:string;value:string;count:number}>>([])
+const items=ref<PharmacistReviewItem[]>([])
+const communications=ref<PharmacistPayload['communications']>([])
+
+async function loadReviews() {
+  loading.value = true
+  try {
+    const payload = await mockFetchPharmacistReviews()
+    tabs.value = payload.tabs
+    items.value = payload.items
+    communications.value = payload.communications
+  } finally {
+    loading.value = false
+  }
+}
+
+const filteredItems=computed(()=>items.value.filter(item=>!query.value||`${item.patient}${item.title}${item.drugs}${item.id}`.includes(query.value)))
+const selected=computed(()=>items.value.find(item=>item.id===selectedId.value)??items.value[0])
+
+onMounted(loadReviews)
 </script>
 <style scoped>
 .review-workspace{height:calc(100vh - 242px);min-height:560px}.queue-tabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #d8e1e4;background:#fff}.queue-tabs button{min-height:42px;border:none;border-bottom:2px solid transparent;background:transparent;color:#65757d;font-size:9px;cursor:pointer}.queue-tabs button.active{border-bottom-color:#126b66;color:#125f5b;font-weight:750}.queue-tabs span{margin-left:3px}.review-list{display:grid;align-content:start;max-height:calc(100% - 43px);overflow:auto}.review-list>button{display:grid;gap:6px;padding:12px;border:0;border-bottom:1px solid #dce4e7;background:transparent;color:#253941;text-align:left;cursor:pointer}.review-list>button:hover{background:#f2f6f7}.review-list>button.active{background:#eaf3f2;box-shadow:inset 3px 0 0 #126b66}.review-card-top,.review-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.review-card-top small,.review-card-footer{color:#728189;font-size:8px}.review-list>button>strong{font-size:11px}.review-list>button>p{margin:0;color:#687880;font-size:9px}.review-card-drugs{display:flex;align-items:center;gap:5px;color:#435b66;font-size:9px}.review-detail{overflow:auto}.detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid #dce4e7}.detail-heading h2{margin:7px 0 3px;font-size:16px}.detail-heading p{margin:0;color:#6e7d85;font-size:8px}.review-patient{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;background:#f3f7f8}.review-avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:5px;background:#e2edec;color:#126b66;font-weight:800}.review-patient>div:nth-child(2){min-width:0;flex:1;display:grid;gap:2px}.review-patient strong{font-size:10px}.review-patient span{color:#6a7a82;font-size:8px}.detail-tabs{margin-top:8px}.risk-comparison{display:grid;grid-template-columns:minmax(0,1fr) 80px minmax(0,1fr);align-items:stretch;border:1px solid #d7e0e4;border-radius:5px;overflow:hidden}.risk-comparison section{padding:12px}.risk-comparison section>span{color:#708087;font-size:8px}.risk-comparison section>strong{display:block;margin-top:6px;font-size:11px}.risk-comparison section>p{margin:5px 0 0;color:#65757d;font-size:8px}.conflict-axis{display:grid;place-items:center;align-content:center;gap:5px;background:#fff4e5;color:#9c590d}.conflict-axis span{font-size:8px;font-weight:750}.rule-hit{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:10px;border-left:4px solid #a75a08;background:#fff7e9;color:#825018}.rule-hit>div{display:grid;gap:4px}.rule-hit strong{font-size:10px}.rule-hit p{margin:0;font-size:8px;line-height:1.5}.rule-hit button{width:max-content;display:flex;align-items:center;gap:3px;padding:0;border:0;background:transparent;color:#7f551e;font-size:8px;cursor:pointer}.section-caption{display:flex;align-items:center;justify-content:space-between;margin:14px 0 7px}.section-caption h3{margin:0;font-size:11px}.section-caption span{color:#718088;font-size:8px}.evidence-brief article{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #dce4e7;border-bottom:0}.evidence-brief article:last-child{border-bottom:1px solid #dce4e7}.evidence-brief article>div{min-width:0;flex:1;display:grid;gap:2px}.evidence-brief strong{font-size:9px}.evidence-brief p{margin:0;color:#6d7d84;font-size:8px}.communication-list{display:grid;margin-bottom:12px}.communication-list article{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid #e0e6e9}.communication-list article>span{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#e6efef;color:#126b66;font-size:9px;font-weight:800}.communication-list article>div>div{display:flex;justify-content:space-between}.communication-list strong,.communication-list time{font-size:8px}.communication-list time{color:#78868d}.communication-list p{margin:4px 0 0;color:#435963;font-size:9px}.message-actions{display:flex;justify-content:space-between;margin-top:8px}.review-resolution{display:grid;grid-template-columns:190px minmax(240px,1fr) auto;align-items:end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #dce4e7}.review-resolution label>span{display:block;margin-bottom:4px;color:#64757d;font-size:8px}.review-resolution em{color:#b82e36;font-style:normal}.review-resolution .el-select{width:100%}@media(max-width:1350px){.review-resolution{grid-template-columns:1fr}.risk-comparison{grid-template-columns:1fr}.conflict-axis{min-height:45px}}
