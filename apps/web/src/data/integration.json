@@ -1,0 +1,68 @@
+{
+  "schema": "hospitalai.mock-data.v1",
+  "synthetic": true,
+  "connectors": [
+    {
+      "id": "CONN-HIS-01",
+      "name": "住院 HIS",
+      "type": "患者快照与医嘱",
+      "icon": "database",
+      "status": "未连接",
+      "statusClass": "warning",
+      "className": "teal",
+      "mode": "实时快照 + 增量事件",
+      "lastSuccess": "界面预览",
+      "cursor": "未建立",
+      "mapping": "HIS-CAP-MAP v3.4",
+      "metric": "目标 SLA 99.9%"
+    },
+    {
+      "id": "CONN-LIS-01",
+      "name": "检验 LIS",
+      "type": "关键检验与趋势",
+      "icon": "heart-pulse",
+      "status": "未连接",
+      "statusClass": "warning",
+      "className": "blue",
+      "mode": "增量事件 + 5 分钟轮询",
+      "lastSuccess": "界面预览",
+      "cursor": "未建立",
+      "mapping": "LIS-LAB-MAP v2.8",
+      "metric": "目标延迟 < 60 秒"
+    },
+    {
+      "id": "CONN-EMR-01",
+      "name": "电子病历 EMR",
+      "type": "诊断与历史事件",
+      "icon": "book-open",
+      "status": "未连接",
+      "statusClass": "warning",
+      "className": "amber",
+      "mode": "患者上下文按需读取",
+      "lastSuccess": "界面预览",
+      "cursor": "不适用",
+      "mapping": "EMR-CTX-MAP v1.9",
+      "metric": "原文按权限访问"
+    },
+    {
+      "id": "CONN-SSO-01",
+      "name": "医院统一身份",
+      "type": "OIDC / SSO",
+      "icon": "key-round",
+      "status": "未连接",
+      "statusClass": "warning",
+      "className": "slate",
+      "mode": "OIDC 优先，兼容 CAS/SAML",
+      "lastSuccess": "界面预览",
+      "cursor": "不适用",
+      "mapping": "角色映射 v1.2",
+      "metric": "一次性上下文票据"
+    }
+  ],
+  "events": [
+    { "time": "10:24:18", "source": "HIS_SIMULATOR", "batch": "BATCH-20260803-1042", "type": "patient.snapshot", "version": "his.snapshot.v1", "status": "已应用", "className": "", "result": "5 患者 · 5 就诊", "hash": "sha256 8ec4...921a" },
+    { "time": "10:22:04", "source": "LIS_SIMULATOR", "batch": "BATCH-LIS-8821", "type": "lab.result.updated", "version": "his.event.v1", "status": "已应用", "className": "", "result": "12 检验结果更新", "hash": "sha256 4d20...a81f" },
+    { "time": "10:18:36", "source": "HIS_SIMULATOR", "batch": "BATCH-HIS-1040", "type": "medication.order", "version": "his.event.v1", "status": "重复忽略", "className": "info", "result": "幂等键已存在", "hash": "sha256 83ad...11c2" },
+    { "time": "10:12:09", "source": "EMR_SIMULATOR", "batch": "BATCH-EMR-3328", "type": "allergy.updated", "version": "his.event.v1", "status": "待重试", "className": "danger", "result": "来源标识映射缺失", "hash": "sha256 2a9b...661c" }
+  ]
+}

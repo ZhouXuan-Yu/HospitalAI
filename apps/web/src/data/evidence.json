@@ -1,0 +1,117 @@
+{
+  "schema": "hospitalai.mock-data.v1",
+  "synthetic": true,
+  "documents": [
+    {
+      "id": "EV-CAP-001",
+      "title": "成人社区获得性肺炎院内诊疗路径",
+      "format": "PDF",
+      "type": "pathway",
+      "typeLabel": "临床路径",
+      "scope": "呼吸内科 · 住院成人",
+      "version": "v2026.08",
+      "effective": "2026-08-01",
+      "status": "published",
+      "statusLabel": "已发布",
+      "statusClass": "",
+      "quality": "98.6%",
+      "qualityNote": "版面解析通过",
+      "chunks": 186,
+      "updatedAt": "08-02 10:18",
+      "updatedBy": "陈药师"
+    },
+    {
+      "id": "EV-LABEL-AMOX",
+      "title": "阿莫西林克拉维酸钾药品说明书",
+      "format": "PDF",
+      "type": "label",
+      "typeLabel": "说明书",
+      "scope": "全院 · 抗感染药",
+      "version": "核准 2025-12",
+      "effective": "2025-12-16",
+      "status": "published",
+      "statusLabel": "已发布",
+      "statusClass": "",
+      "quality": "99.2%",
+      "qualityNote": "表格人工复核",
+      "chunks": 94,
+      "updatedAt": "08-01 14:20",
+      "updatedBy": "资料管理员"
+    },
+    {
+      "id": "EV-POLICY-ADR",
+      "title": "药品不良反应报告与处置制度",
+      "format": "DOCX",
+      "type": "policy",
+      "typeLabel": "院内制度",
+      "scope": "全院",
+      "version": "v4.2",
+      "effective": "2026-06-01",
+      "status": "published",
+      "statusLabel": "已发布",
+      "statusClass": "",
+      "quality": "97.4%",
+      "qualityNote": "结构解析通过",
+      "chunks": 72,
+      "updatedAt": "07-28 09:12",
+      "updatedBy": "药学部"
+    },
+    {
+      "id": "EV-CAP-NEW",
+      "title": "CAP 指南更新候选稿",
+      "format": "PDF",
+      "type": "guideline",
+      "typeLabel": "指南",
+      "scope": "呼吸内科",
+      "version": "2026 draft",
+      "effective": "待确认",
+      "status": "review",
+      "statusLabel": "待审核",
+      "statusClass": "warning",
+      "quality": "95.1%",
+      "qualityNote": "3 个表格待复核",
+      "chunks": 214,
+      "updatedAt": "08-03 09:45",
+      "updatedBy": "周医生"
+    },
+    {
+      "id": "EV-SCAN-014",
+      "title": "抗菌药物管理制度扫描件",
+      "format": "扫描 PDF",
+      "type": "policy",
+      "typeLabel": "院内制度",
+      "scope": "全院",
+      "version": "未知",
+      "effective": "待补充",
+      "status": "parsing",
+      "statusLabel": "待补元数据",
+      "statusClass": "info",
+      "quality": "72.8%",
+      "qualityNote": "低置信度",
+      "chunks": 0,
+      "updatedAt": "08-03 10:02",
+      "updatedBy": "资料管理员"
+    }
+  ],
+  "chunks": [
+    {
+      "section": "初始经验性治疗",
+      "score": "92%",
+      "locator": "第 6 页 · 2.3 节 · 第 2 段",
+      "text": "候选方案应结合患者既往过敏、不良反应、肝肾功能与当前有效用药进行比较；存在确定性阻断时不得进入正常提交。"
+    },
+    {
+      "section": "治疗监测",
+      "score": "88%",
+      "locator": "第 9 页 · 表 4 · 第 2 行",
+      "text": "处方前核对关键检验和当前用药。检验缺失应显示未知状态，不得以正常值代替。"
+    }
+  ],
+  "processingSteps": [
+    { "name": "原始文件安全检查", "detail": "SHA-256 已计算 · 类型校验通过", "state": "done" },
+    { "name": "文档解析与版面识别", "detail": "186 个块 · 12 张表格", "state": "done" },
+    { "name": "证据切分与元数据", "detail": "186 个片段 · 定位完整", "state": "done" },
+    { "name": "药师专业审核", "detail": "陈药师 · 2026-08-02", "state": "done" },
+    { "name": "发布至正式证据库", "detail": "2026-08-02 10:18", "state": "done" }
+  ]
+}

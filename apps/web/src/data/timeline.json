@@ -1,0 +1,89 @@
+{
+  "schema": "hospitalai.mock-data.v1",
+  "synthetic": true,
+  "timelines": [
+    {
+      "patientId": "P001",
+      "displayName": "合成患者A",
+      "detail": "女 · 66岁 · P001",
+      "legends": [
+        { "label": "用药", "color": "#2f7f79" },
+        { "label": "检验", "color": "#3974a3" },
+        { "label": "症状", "color": "#9c631b" },
+        { "label": "不良反应", "color": "#b7333b" },
+        { "label": "调整与结局", "color": "#65747c" }
+      ],
+      "current": {
+        "date": "2026-08-03 — 当前",
+        "title": "呼吸内科住院 · E001",
+        "diagnosis": "社区获得性肺炎 · 数据版本 v3",
+        "statusLabel": "治疗中",
+        "statusClass": "warning",
+        "daysText": "住院第 1 天",
+        "tracks": [
+          {
+            "name": "用药",
+            "trackClass": "med-event",
+            "events": [
+              { "time": "08:35", "title": "0.9%氯化钠注射液", "detail": "静脉滴注 · 当前有效", "source": "HIS医嘱 ORD-001" },
+              { "time": "待决策", "title": "抗感染候选方案", "detail": "3 个候选等待医生审核", "source": "HospitalAI REC-E001-v3" }
+            ]
+          },
+          {
+            "name": "检验",
+            "trackClass": "lab-event",
+            "events": [
+              { "time": "08:50", "title": "CRP 42 mg/L", "detail": "异常，较前下降", "source": "LIS LIS-001" },
+              { "time": "08:50", "title": "肌酐 76 umol/L", "detail": "当前稳定", "source": "LIS LIS-002" }
+            ]
+          },
+          {
+            "name": "症状",
+            "trackClass": "symptom-event",
+            "events": [
+              { "time": "08:20", "title": "咳嗽、发热", "detail": "入院症状记录", "source": "EMR 病程记录" }
+            ]
+          },
+          {
+            "name": "调整",
+            "trackClass": "adjust-event",
+            "events": [
+              { "time": "10:24", "title": "待医生完成处方决策", "detail": "处方草稿尚未生成", "source": "HospitalAI 待办" }
+            ]
+          }
+        ]
+      },
+      "riskLink": {
+        "title": "历史事件正在影响当前推荐",
+        "text": "2025-11 的有效方案被作为排序参考；由于当时适用条件不完整，不能直接复用为规则。"
+      },
+      "historical": [
+        {
+          "id": "E-2025-11",
+          "date": "2025-11-02 — 2025-11-09",
+          "title": "呼吸内科住院 · E-2025-11",
+          "diagnosis": "细菌性肺炎",
+          "outcome": "好转出院",
+          "duration": "7 天",
+          "events": [
+            { "type": "用药", "icon": "pill", "title": "阿莫西林克拉维酸钾", "detail": "完成 7 天疗程，未记录不良反应。", "source": "HIS医嘱 + 出院带药", "className": "med-event" },
+            { "type": "疗效", "icon": "activity", "title": "症状与炎症指标改善", "detail": "CRP 由 68 降至 16 mg/L。", "source": "LIS + 出院小结", "className": "lab-event" },
+            { "type": "结局", "icon": "file-check-2", "title": "好转出院", "detail": "出院带药 3 天，随访未回传。", "source": "出院小结", "className": "adjust-event" }
+          ]
+        },
+        {
+          "id": "E-2024-03",
+          "date": "2024-03-18",
+          "title": "呼吸内科门诊 · E-2024-03",
+          "diagnosis": "下呼吸道感染",
+          "outcome": "记录不完整",
+          "duration": "1 次门诊",
+          "events": [
+            { "type": "用药", "icon": "pill", "title": "口服抗感染方案", "detail": "实际用药暴露未确认。", "source": "门诊处方", "className": "med-event" },
+            { "type": "反馈", "icon": "message-square-plus", "title": "疗效反馈缺失", "detail": "不作为当前有效方案依据。", "source": "缺失状态", "className": "symptom-event" }
+          ]
+        }
+      ]
+    }
+  ]
+}

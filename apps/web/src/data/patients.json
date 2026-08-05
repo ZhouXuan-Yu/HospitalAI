@@ -1,0 +1,89 @@
+{
+  "schema": "hospitalai.mock-data.v1",
+  "synthetic": true,
+  "patients": [
+    {
+      "patientId": "P001",
+      "displayName": "合成患者A",
+      "sex": "女",
+      "age": 66,
+      "sourcePatientId": "HIS-P001",
+      "encounterId": "E001",
+      "department": "呼吸内科",
+      "dataVersion": 3,
+      "confirmedAllergy": "未记录",
+      "severeAdr": "未记录",
+      "specialPopulation": "老年患者",
+      "activeBlocks": "0 项",
+      "labs": [
+        { "name": "肌酐", "value": "76", "unit": "umol/L", "trend": [48, 52, 49, 55], "note": "较前稳定", "flag": "" },
+        { "name": "C反应蛋白", "value": "42", "unit": "mg/L", "trend": [82, 72, 61, 48], "note": "较昨日下降 18%", "flag": "异常" },
+        { "name": "eGFR", "value": "72", "unit": "mL/min", "trend": [58, 60, 62, 64], "note": "剂量调整参考", "flag": "" },
+        { "name": "ALT", "value": "28", "unit": "U/L", "trend": [44, 46, 43, 45], "note": "当前正常", "flag": "" }
+      ],
+      "medications": [
+        { "name": "0.9%氯化钠注射液", "code": "D-NS-100", "status": "当前有效", "statusClass": "", "department": "呼吸内科", "route": "静脉滴注", "time": "08-03 08:35 — 至今", "source": "HIS医嘱" },
+        { "name": "布地奈德混悬液", "code": "D-BUD-021", "status": "当前有效", "statusClass": "", "department": "呼吸内科", "route": "雾化吸入", "time": "08-03 09:10 — 至今", "source": "HIS医嘱" },
+        { "name": "阿莫西林克拉维酸钾", "code": "D-AMOX", "status": "历史有效", "statusClass": "info", "department": "呼吸内科", "route": "口服", "time": "2025-11-02 — 11-09", "source": "历史处方" }
+      ],
+      "history": [
+        { "date": "2025-11", "title": "上次呼吸科住院", "text": "阿莫西林克拉维酸钾治疗后症状改善，无不良反应记录。", "source": "出院小结 · ENC-2025-11" },
+        { "date": "2024-03", "title": "门诊抗感染治疗", "text": "疗效记录不完整，未形成可继承的有效方案结论。", "source": "门诊病历 · ENC-2024-03" }
+      ]
+    },
+    {
+      "patientId": "P002",
+      "displayName": "合成患者B",
+      "sex": "男",
+      "age": 72,
+      "sourcePatientId": "HIS-P002",
+      "encounterId": "E002-2",
+      "department": "呼吸内科",
+      "dataVersion": 4,
+      "confirmedAllergy": "阿莫西林克拉维酸钾",
+      "severeAdr": "未记录",
+      "specialPopulation": "老年患者",
+      "activeBlocks": "1 项",
+      "labs": [
+        { "name": "肌酐", "value": "88", "unit": "umol/L", "trend": [70, 76, 82, 88], "note": "缓慢上升", "flag": "异常" },
+        { "name": "C反应蛋白", "value": "58", "unit": "mg/L", "trend": [90, 80, 68, 58], "note": "仍偏高", "flag": "异常" },
+        { "name": "eGFR", "value": "63", "unit": "mL/min", "trend": [75, 70, 66, 63], "note": "剂量调整参考", "flag": "" },
+        { "name": "ALT", "value": "35", "unit": "U/L", "trend": [30, 32, 34, 35], "note": "正常上限内", "flag": "" }
+      ],
+      "medications": [
+        { "name": "头孢曲松", "code": "D-CEF", "status": "当前有效", "statusClass": "", "department": "呼吸内科", "route": "静脉滴注", "time": "08-03 08:00 — 至今", "source": "HIS医嘱" },
+        { "name": "阿莫西林克拉维酸钾", "code": "D-AMOX", "status": "历史过敏", "statusClass": "danger", "department": "呼吸内科", "route": "口服", "time": "2026-03 历史记录", "source": "历史处方" }
+      ],
+      "history": [
+        { "date": "2026-03", "title": "二次入院前抗感染治疗", "text": "口服阿莫西林克拉维酸钾后出现皮疹，确认药物过敏并记录。", "source": "过敏事件 · ALG-P002-AMOX" },
+        { "date": "2025-06", "title": "首次肺炎住院", "text": "初始方案为头孢曲松治疗，症状改善后出院。", "source": "出院小结 · ENC-2025-06" }
+      ]
+    },
+    {
+      "patientId": "P003",
+      "displayName": "合成患者C",
+      "sex": "女",
+      "age": 59,
+      "sourcePatientId": "HIS-P003",
+      "encounterId": "E003",
+      "department": "呼吸内科",
+      "dataVersion": 2,
+      "confirmedAllergy": "未记录",
+      "severeAdr": "左氧氟沙星",
+      "specialPopulation": "无",
+      "activeBlocks": "0 项",
+      "labs": [
+        { "name": "肌酐", "value": "69", "unit": "umol/L", "trend": [66, 68, 67, 69], "note": "较前稳定", "flag": "" },
+        { "name": "C反应蛋白", "value": "35", "unit": "mg/L", "trend": [70, 62, 46, 35], "note": "持续下降", "flag": "异常" },
+        { "name": "eGFR", "value": "78", "unit": "mL/min", "trend": [75, 76, 77, 78], "note": "剂量调整参考", "flag": "" },
+        { "name": "ALT", "value": "22", "unit": "U/L", "trend": [25, 24, 23, 22], "note": "当前正常", "flag": "" }
+      ],
+      "medications": [
+        { "name": "0.9%氯化钠注射液", "code": "D-NS-100", "status": "当前有效", "statusClass": "", "department": "呼吸内科", "route": "静脉滴注", "time": "08-03 07:30 — 至今", "source": "HIS医嘱" }
+      ],
+      "history": [
+        { "date": "2025-12", "title": "喹诺酮类严重 ADR", "text": "使用左氧氟沙星后出现严重不良反应，已确认并记录，后续推荐必须强提醒。", "source": "ADR 事件 · ADR-P003-LEV" }
+      ]
+    }
+  ]
+}
