@@ -1070,18 +1070,20 @@ public class WorkbenchRepository {
         INSERT INTO knowledge_submission(submission_id, report_id, status, submission_type, title, submitted_by, submitted_at)
         VALUES (?, ?, 'review_pending', ?, ?, ?, ?)
         """, submissionId, report.reportId(), submissionType, report.title(), submittedBy, now);
-    return new KnowledgeSubmissionSummary(submissionId, report.reportId(), "review_pending", submissionType, report.title(), submittedBy, now, null);
+    return new KnowledgeSubmissionSummary(submissionId, report.reportId(), "review_pending", submissionType, report.title(), submittedBy, now, null, List.of());
   }
 
   public List<KnowledgeSubmissionSummary> knowledgeSubmissions(String status) {
     String sql = """
-        SELECT submission_id, report_id, status, submission_type, title, submitted_by, submitted_at, published_at
-        FROM knowledge_submission
+        SELECT s.submission_id, s.report_id, s.status, s.submission_type, s.title, s.submitted_by, s.submitted_at, s.published_at,
+               COALESCE(array_agg(DISTINCT r.reviewer_role) FILTER (WHERE r.decision = 'approve' AND r.reviewer_role IS NOT NULL), '{}')
+        FROM knowledge_submission s
+        LEFT JOIN knowledge_submission_review r ON r.submission_id = s.submission_id
         """;
     if (status == null || status.isBlank()) {
-      return jdbc.query(sql + "ORDER BY submitted_at DESC", this::mapKnowledgeSubmission);
+      return jdbc.query(sql + "GROUP BY s.submission_id, s.report_id, s.status, s.submission_type, s.title, s.submitted_by, s.submitted_at, s.published_at ORDER BY s.submitted_at DESC", this::mapKnowledgeSubmission);
     }
-    return jdbc.query(sql + "WHERE status = ? ORDER BY submitted_at DESC", this::mapKnowledgeSubmission, status);
+    return jdbc.query(sql + "WHERE s.status = ? GROUP BY s.submission_id, s.report_id, s.status, s.submission_type, s.title, s.submitted_by, s.submitted_at, s.published_at ORDER BY s.submitted_at DESC", this::mapKnowledgeSubmission, status);
   }
 
   public KnowledgeReviewSummary reviewKnowledge(String submissionId, KnowledgeReviewRequest request) {
@@ -1131,16 +1133,30 @@ public class WorkbenchRepository {
 
   private KnowledgeSubmissionSummary knowledgeSubmission(String submissionId) {
     return jdbc.queryForObject("""
-        SELECT submission_id, report_id, status, submission_type, title, submitted_by, submitted_at, published_at
-        FROM knowledge_submission
-        WHERE submission_id = ?
+        SELECT s.submission_id, s.report_id, s.status, s.submission_type, s.title, s.submitted_by, s.submitted_at, s.published_at,
+               COALESCE(array_agg(DISTINCT r.reviewer_role) FILTER (WHERE r.decision = 'approve' AND r.reviewer_role IS NOT NULL), '{}')
+        FROM knowledge_submission s
+        LEFT JOIN knowledge_submission_review r ON r.submission_id = s.submission_id
+        WHERE s.submission_id = ?
+        GROUP BY s.submission_id, s.report_id, s.status, s.submission_type, s.title, s.submitted_by, s.submitted_at, s.published_at
         """, this::mapKnowledgeSubmission, submissionId);
   }
 
   private KnowledgeSubmissionSummary mapKnowledgeSubmission(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
     return new KnowledgeSubmissionSummary(
         rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
-        rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant());
+        rs.getTimestamp(7).toInstant(), rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toInstant(),
+        toList(rs.getArray(9)));
+  }
+
+  private List<String> toList(java.sql.Array array) throws java.sql.SQLException {
+    if (array == null) return List.of();
+    Object[] arr = (Object[]) array.getArray();
+    List<String> result = new java.util.ArrayList<>();
+    for (Object o : arr) {
+      if (o != null) result.add(String.valueOf(o));
+    }
+    return result;
   }
 
   private String deidentifiedExportPayload(String cohortId, String diseaseScope) {

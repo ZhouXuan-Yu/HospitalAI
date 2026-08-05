@@ -156,6 +156,7 @@ export interface KnowledgeSubmissionSummary {
   submittedBy: string
   submittedAt: string
   publishedAt: string | null
+  reviewedRoles?: string[]
 }
 
 export interface ResearchAnalysisTaskSummary {

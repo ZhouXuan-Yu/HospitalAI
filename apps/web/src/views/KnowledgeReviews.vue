@@ -29,7 +29,7 @@ const items=computed(()=>{
   if(!isPreview)return realItems.value
   return liveItem.value?[liveItem.value,...legacyItems]:legacyItems
 })
-function mapSubmission(s: {submissionId:string;reportId:string;status:string;submissionType:string;title:string;submittedBy:string;submittedAt:string}):KnowledgeItem{
+function mapSubmission(s: {submissionId:string;reportId:string;status:string;submissionType:string;title:string;submittedBy:string;submittedAt:string;reviewedRoles?:string[]}):KnowledgeItem{
   return {id:s.submissionId,title:s.title||s.reportId,type:'research',typeLabel:'科研结论',submitter:s.submittedBy||'待确认',time:s.submittedAt?.slice(0,16)||'',live:false,dataset:s.reportId,report:s.reportId,sampleSize:0,conclusion:`提交状态：${s.status}`,limitations:'后端未返回详细结论字段',applicability:'',inputHash:'',outputHash:'',runId:'',reportingGuideline:'',ethicsApproval:''}
 }
 async function loadReal(){try{const subs=await loadKnowledgeSubmissions();realItems.value=subs.map(mapSubmission);if(!selectedId.value&&realItems.value.length)selectedId.value=realItems.value[0].id}catch(e){realItems.value=[];decisionMessage.value=`真实知识队列加载失败：${(e as Error).message}`}}
