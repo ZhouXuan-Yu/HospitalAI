@@ -4,6 +4,19 @@
 
 ---
 
+## 项目必读(每次开发前强制阅读)
+
+以下四份是本项目(HospitalAI)特有的硬性约束,任何改动前**必须阅读**,优先级高于通用思维指南。
+
+| 指南 | 内容 | 必须遵守 |
+|------|------|----------|
+| [医学安全边界](./medical-safety.md) | AI 角色边界、硬规则、剂量确定性、证据纪律 | 是,最高优先级 |
+| [科研合规边界](./research-compliance.md) | 数据脱敏、结论纪律、发表支撑、统计可复现 | 是 |
+| [项目边界与产品定位](./project-boundary.md) | 核心功能范围、第一版试点、禁止事项 | 是 |
+| [文档与代码风格](./documentation-style.md) | 中文写作、分层、版本/来源/审核状态、验收要求 | 是 |
+
+---
+
 ## Why Thinking Guides?
 
 **Most bugs and tech debt come from "didn't think of that"**, not from lack of skill:
