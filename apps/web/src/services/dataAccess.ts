@@ -1,7 +1,6 @@
 import {
   fetchWorklist as realFetchWorklist,
   fetchWorkbench as realFetchWorkbench,
-  fetchAdrReviews as realFetchAdrReviews,
   type WorklistItem,
   type WorkbenchPayload
 } from './coreApi'
@@ -40,7 +39,8 @@ export type {
   AuditEventItem,
   PatientContextPayload,
   TimelinePayload,
-  PharmacistPayload
+  PharmacistPayload,
+  PharmacistReviewItem
 } from './mockApi'
 export type { WorklistItem, WorkbenchPayload } from './coreApi'
 

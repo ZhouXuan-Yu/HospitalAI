@@ -135,6 +135,33 @@ export interface ResearchArtifactContent {
   content: string
 }
 
+export interface PharmacistReviewTaskSummary {
+  reviewId: string
+  recommendationId: string
+  decisionId: string
+  encounterId: string
+  status: string
+  priority: string
+  reason: string
+  assignedRole: string
+  createdAt: string
+  resolvedAt: string | null
+  resolution: string | null
+}
+
+export interface CollaborationTaskSummary {
+  taskId: string
+  recommendationId: string
+  encounterId: string
+  sourceDepartment: string
+  targetDepartment: string
+  status: string
+  reason: string
+  createdAt: string
+  resolvedAt: string | null
+  resolution: string | null
+}
+
 const roleHeaders = (role: string) => ({ 'X-HospitalAI-Role': role })
 const jsonRoleHeaders = (role: string) => ({ 'Content-Type': 'application/json', 'X-HospitalAI-Role': role })
 

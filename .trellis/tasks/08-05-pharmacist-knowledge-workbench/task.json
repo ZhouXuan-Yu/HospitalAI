@@ -3,7 +3,7 @@
   "name": "pharmacist-knowledge-workbench",
   "title": "药师与知识库工作台接入真实数据链路",
   "description": "将 PharmacistReviews/KnowledgeReviews 从 mock 数据切换到 Core API 真实端点,补充前端缺失的 API 封装",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

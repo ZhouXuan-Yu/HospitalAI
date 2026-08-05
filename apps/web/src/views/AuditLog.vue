@@ -47,8 +47,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ArrowRight, CircleCheck, Download, LockKeyhole, PanelRightOpen, RotateCcw, Search, ShieldCheck } from 'lucide-vue-next'
-import { mockFetchAuditEvents, mockFetchAuditDomains } from '../services/mockApi'
-import type { AuditEventItem } from '../services/mockApi'
+import { loadAuditEvents, loadAuditDomains } from '../services/dataAccess'
+import type { AuditEventItem } from '../services/dataAccess'
 
 type AuditEvent = AuditEventItem
 const domains = ref<string[]>([])
@@ -56,7 +56,7 @@ const events = ref<AuditEvent[]>([])
 const query=ref('');const domain=ref('全部');const risk=ref('全部');const range=ref('');const drawer=ref(false);const activeEvent=ref<AuditEvent|null>(null)
 
 onMounted(async () => {
-  const [d, e] = await Promise.all([mockFetchAuditDomains(), mockFetchAuditEvents()])
+  const [d, e] = await Promise.all([loadAuditDomains(), loadAuditEvents()])
   domains.value = d
   events.value = e
 })

@@ -14,7 +14,7 @@ const connectors = ref<ViewConnector[]>([])
 const events = ref<InboundEventItem[]>([])
 
 onMounted(async () => {
-  const [c, e] = await Promise.all([mockFetchConnectors(), mockFetchInboundEvents()])
+  const [c, e] = await Promise.all([loadConnectors(), loadInboundEvents()])
   connectors.value = c.map(item => ({ ...item, icon: iconMap[item.icon as keyof typeof iconMap] ?? Database }))
   events.value = e
 })
