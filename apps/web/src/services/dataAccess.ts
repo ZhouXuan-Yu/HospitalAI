@@ -30,6 +30,20 @@ import {
   type PharmacistPayload
 } from './mockApi'
 
+export type {
+  EvidenceDoc,
+  EvidenceChunk,
+  ProcessingStep,
+  RuleItem,
+  ConnectorItem,
+  InboundEventItem,
+  AuditEventItem,
+  PatientContextPayload,
+  TimelinePayload,
+  PharmacistPayload
+} from './mockApi'
+export type { WorklistItem, WorkbenchPayload } from './coreApi'
+
 /**
  * 统一数据访问层。
  *

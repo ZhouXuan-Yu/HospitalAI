@@ -12,8 +12,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { BookOpenCheck, CheckCircle2, Clock3, ExternalLink, GitBranch, GitCompareArrows, MessagesSquare, MoreHorizontal, Paperclip, Pill, RefreshCw, Search, Send, ShieldAlert, ShieldX, SlidersHorizontal, TriangleAlert } from 'lucide-vue-next'
-import { mockFetchPharmacistReviews } from '../services/mockApi'
-import type { PharmacistReviewItem, PharmacistPayload } from '../services/mockApi'
+import { loadPharmacistReviews } from '../services/dataAccess'
+import type { PharmacistReviewItem, PharmacistPayload } from '../services/dataAccess'
 
 const query=ref(''),queue=ref('all'),priority=ref('all'),onlyMine=ref(false),activeTab=ref('pending'),selectedId=ref('PR-2026-0084'),detailTab=ref('risk'),message=ref(''),resolution=ref(''),resolutionNote=ref(''),loading=ref(false)
 const tabs=ref<Array<{label:string;value:string;count:number}>>([])
@@ -23,7 +23,7 @@ const communications=ref<PharmacistPayload['communications']>([])
 async function loadReviews() {
   loading.value = true
   try {
-    const payload = await mockFetchPharmacistReviews()
+    const payload = await loadPharmacistReviews()
     tabs.value = payload.tabs
     items.value = payload.items
     communications.value = payload.communications

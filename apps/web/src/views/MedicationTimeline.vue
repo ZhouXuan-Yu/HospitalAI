@@ -13,8 +13,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Activity, ClipboardPlus, FileCheck2, Filter, FlaskConical, MessageSquarePlus, Pill, ShieldAlert, Stethoscope, Thermometer } from 'lucide-vue-next'
-import { mockFetchTimeline } from '../services/mockApi'
-import type { TimelinePayload } from '../services/mockApi'
+import { loadTimeline } from '../services/dataAccess'
+import type { TimelinePayload } from '../services/dataAccess'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,7 +32,7 @@ const historicalEncounters = computed(() => timeline.value?.historical.map(encou
 })) ?? [])
 
 onMounted(async () => {
-  timeline.value = await mockFetchTimeline(patientId.value)
+  timeline.value = await loadTimeline(patientId.value)
 })
 </script>
 <style scoped>
