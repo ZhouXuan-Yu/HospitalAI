@@ -2,9 +2,16 @@ import {
   fetchWorklist as realFetchWorklist,
   fetchWorkbench as realFetchWorkbench,
   fetchPharmacistReviews as realFetchPharmacistReviews,
+  resolvePharmacistReview as realResolvePharmacistReview,
+  fetchCollaborationTasks as realFetchCollaborationTasks,
+  resolveCollaborationTask as realResolveCollaborationTask,
+  fetchKnowledgeSubmissions as realFetchKnowledgeSubmissions,
+  reviewKnowledgeSubmission as realReviewKnowledgeSubmission,
   type WorklistItem,
   type WorkbenchPayload,
-  type PharmacistReviewTaskSummary
+  type PharmacistReviewTaskSummary,
+  type CollaborationTaskSummary,
+  type KnowledgeSubmissionSummary
 } from './coreApi'
 import {
   mockFetchWorklist,
@@ -45,6 +52,7 @@ export type {
   PharmacistReviewItem
 } from './mockApi'
 export type { WorklistItem, WorkbenchPayload } from './coreApi'
+export type { PharmacistReviewTaskSummary, CollaborationTaskSummary, KnowledgeSubmissionSummary, AdverseDrugReactionSummary } from './coreApi'
 
 /**
  * 统一数据访问层。
@@ -92,9 +100,88 @@ export function loadTimeline(patientId: string): Promise<TimelinePayload> {
   return mockFetchTimeline(patientId)
 }
 
-// —— 药师风险复核（后端 /pharmacist/reviews 与 /adr/reviews 存在，先走 mock 聚合视图） ——
-export function loadPharmacistReviews(): Promise<PharmacistPayload> {
-  return mockFetchPharmacistReviews()
+// —— 药师风险复核（后端 /pharmacist/reviews 存在；preview 走 mock 聚合视图） ——
+export async function loadPharmacistReviews(): Promise<PharmacistPayload> {
+  if (isPreview()) return mockFetchPharmacistReviews()
+  try {
+    const reviews = await realFetchPharmacistReviews('pending')
+    return mapPharmacistReviewsToPayload(reviews)
+  } catch (error) {
+    console.warn('[dataAccess] pharmacist reviews 降级到 mock：', error)
+    return mockFetchPharmacistReviews()
+  }
+}
+
+function mapPharmacistReviewsToPayload(reviews: PharmacistReviewTaskSummary[]): PharmacistPayload {
+  return {
+    tabs: [
+      { label: '待处理', value: 'pending', count: reviews.length },
+      { label: '沟通中', value: 'active', count: 0 },
+      { label: '我已处理', value: 'done', count: 0 }
+    ],
+    items: reviews.map((review) => ({
+      id: review.reviewId,
+      level: priorityLabel(review.priority),
+      levelClass: priorityClass(review.priority),
+      title: `${review.diagnosis || ''} 用药复核`,
+      patient: review.patientName || review.patientId || '',
+      encounter: review.encounterId,
+      department: review.department || '',
+      drugs: review.drugNames?.join(' · ') || review.reason,
+      wait: '待处理',
+      kind: '处方复核',
+      createdAt: review.createdAt,
+      ruleVersion: review.reason
+    })),
+    communications: []
+  }
+}
+
+function priorityLabel(priority: string): string {
+  if (priority === 'high' || priority === 'urgent' || priority === 'severe') return '高优先级'
+  if (priority === 'strong' || priority === 'warning') return '强提醒'
+  return '一般'
+}
+function priorityClass(priority: string): string {
+  if (priority === 'high' || priority === 'urgent' || priority === 'severe') return 'danger'
+  if (priority === 'strong' || priority === 'warning') return 'warning'
+  return 'info'
+}
+
+export async function resolvePharmacistReview(reviewId: string, resolution: string): Promise<Record<string, unknown>> {
+  if (isPreview()) return { reviewId, status: 'resolved', preview: true }
+  return realResolvePharmacistReview(reviewId, resolution)
+}
+
+export async function loadCollaborationTasks(status = 'pending'): Promise<CollaborationTaskSummary[]> {
+  if (isPreview()) return []
+  try {
+    return await realFetchCollaborationTasks(status)
+  } catch (error) {
+    console.warn('[dataAccess] collaboration tasks 降级为空：', error)
+    return []
+  }
+}
+
+export async function resolveCollaborationTask(taskId: string, resolution: string): Promise<Record<string, unknown>> {
+  if (isPreview()) return { taskId, status: 'resolved', preview: true }
+  return realResolveCollaborationTask(taskId, resolution)
+}
+
+// —— 知识审核（后端 /knowledge/submissions 存在；preview 走 flowSimulation 演示） ——
+export async function loadKnowledgeSubmissions(status = 'review_pending'): Promise<KnowledgeSubmissionSummary[]> {
+  if (isPreview()) return []
+  try {
+    return await realFetchKnowledgeSubmissions(status)
+  } catch (error) {
+    console.warn('[dataAccess] knowledge submissions 降级为空：', error)
+    return []
+  }
+}
+
+export async function submitKnowledgeReview(submissionId: string, reviewerRole: string, decision: 'approve' | 'reject', note: string): Promise<Record<string, unknown>> {
+  if (isPreview()) return { submissionId, reviewerRole, decision, preview: true }
+  return realReviewKnowledgeSubmission(submissionId, reviewerRole, decision, note)
 }
 
 // —— 规则治理 ——
