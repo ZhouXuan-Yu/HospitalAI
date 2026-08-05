@@ -45,20 +45,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ArrowRight, CircleCheck, Download, LockKeyhole, PanelRightOpen, RotateCcw, Search, ShieldCheck } from 'lucide-vue-next'
+import { mockFetchAuditEvents, mockFetchAuditDomains } from '../services/mockApi'
+import type { AuditEventItem } from '../services/mockApi'
 
-type AuditEvent={id:string;time:string;domain:string;risk:string;actor:string;role:string;action:string;object:string;result:string;resultClass:string;source:string;ip:string;hash:string;before:string;after:string;prevHash:string;fullHash:string}
-const domains=['推荐决策','药师审核','规则治理','证据治理','接口同步','科研与知识']
-const events:AuditEvent[]=[
-  {id:'AUD-20260803-010284',time:'2026-08-03 10:28:41',domain:'推荐决策',risk:'高',actor:'张医生',role:'DOCTOR · 呼吸内科',action:'修改并采纳候选方案',object:'REC-E001-20260803-v1 · SYN-P001',result:'草稿已创建',resultClass:'',source:'WEB / CORE-API',ip:'10.21.8.42',hash:'已验证',before:'decision=PENDING\ncandidate=CAP-02',after:'decision=MODIFIED\ndraft=DRAFT-10428',prevHash:'43be8b...329f',fullHash:'f829de...a44c'},
-  {id:'AUD-20260803-010279',time:'2026-08-03 10:24:18',domain:'接口同步',risk:'常规',actor:'his-adapter-worker',role:'SERVICE_ACCOUNT',action:'导入患者快照',object:'BATCH-20260803-1042 · schema v1',result:'已应用',resultClass:'',source:'HIS_SIMULATOR',ip:'service-network',hash:'已验证',before:'sourceVersion=17',after:'sourceVersion=18\npatients=5',prevHash:'98ae31...5d20',fullHash:'43be8b...329f'},
-  {id:'AUD-20260803-010261',time:'2026-08-03 10:17:09',domain:'药师审核',risk:'高',actor:'李药师',role:'PHARMACIST',action:'确认严重不良反应',object:'ADR-0031 · SYN-P003',result:'已阻断',resultClass:'danger',source:'WEB / CORE-API',ip:'10.21.12.17',hash:'已验证',before:'status=PENDING',after:'status=CONFIRMED\nseverity=SEVERE',prevHash:'7ae211...b020',fullHash:'98ae31...5d20'},
-  {id:'AUD-20260803-010248',time:'2026-08-03 10:11:32',domain:'规则治理',risk:'高',actor:'王管理员',role:'ADMIN',action:'提交规则版本复核',object:'RULE-ALLERGY-001 · v3.2',result:'待药师复核',resultClass:'warning',source:'WEB / CORE-API',ip:'10.21.2.18',hash:'已验证',before:'status=DRAFT',after:'status=IN_REVIEW',prevHash:'3df801...7b91',fullHash:'7ae211...b020'},
-  {id:'AUD-20260803-010221',time:'2026-08-03 09:58:04',domain:'证据治理',risk:'常规',actor:'赵药师',role:'PHARMACIST',action:'发布证据版本',object:'EVD-CAP-DEMO-001 · v1.4',result:'已发布',resultClass:'',source:'WEB / CORE-API',ip:'10.21.12.21',hash:'已验证',before:'status=REVIEWED',after:'status=PUBLISHED',prevHash:'af2091...11ca',fullHash:'3df801...7b91'},
-  {id:'AUD-20260803-010199',time:'2026-08-03 09:43:52',domain:'科研与知识',risk:'常规',actor:'陈研究员',role:'RESEARCHER',action:'冻结脱敏队列版本',object:'COHORT-CAP-2026 · v1.0',result:'已冻结',resultClass:'info',source:'WEB / CORE-API',ip:'10.21.16.9',hash:'已验证',before:'status=DRAFT\nrows=1284',after:'status=FROZEN\ninputHash=de31...',prevHash:'000000...0000',fullHash:'af2091...11ca'}]
+type AuditEvent = AuditEventItem
+const domains = ref<string[]>([])
+const events = ref<AuditEvent[]>([])
 const query=ref('');const domain=ref('全部');const risk=ref('全部');const range=ref('');const drawer=ref(false);const activeEvent=ref<AuditEvent|null>(null)
-const filteredEvents=computed(()=>events.filter(event=>(domain.value==='全部'||event.domain===domain.value)&&(risk.value==='全部'||event.risk===risk.value)&&(!query.value||Object.values(event).join(' ').toLowerCase().includes(query.value.toLowerCase()))))
+
+onMounted(async () => {
+  const [d, e] = await Promise.all([mockFetchAuditDomains(), mockFetchAuditEvents()])
+  domains.value = d
+  events.value = e
+})
+
+const filteredEvents=computed(()=>events.value.filter(event=>(domain.value==='全部'||event.domain===domain.value)&&(risk.value==='全部'||event.risk===risk.value)&&(!query.value||Object.values(event).join(' ').toLowerCase().includes(query.value.toLowerCase()))))
 function reset(){query.value='';domain.value='全部';risk.value='全部';range.value=''}
 </script>
 

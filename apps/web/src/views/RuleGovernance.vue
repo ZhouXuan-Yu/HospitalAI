@@ -14,18 +14,16 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ChevronRight, CircleAlert, CircleCheck, Clock3 as ClipboardClock, Copy, ExternalLink, FileDown, GitBranch, MoreHorizontal, Plus, Search, ShieldX, TestTube2, Upload } from 'lucide-vue-next'
-const query=ref(''),status=ref('all'),severity=ref('all'),drawerVisible=ref(false),editVisible=ref(false),activeRule=ref<any>(null)
-const rules=[
- {id:'HR-ALG-001',name:'已确认药物过敏硬阻断',scope:'全院 · 所有处方前推荐',severity:'阻断',severityClass:'danger',version:'v2026.08',previous:'上一版 v2026.06',status:'published',statusLabel:'已发布',statusClass:'',cases:'12 / 12',testAt:'08-03 02:00',evidence:'院内过敏管理制度',updatedBy:'周医生',updatedAt:'08-02 10:00'},
- {id:'HR-ADR-001',name:'严重不良反应强提醒',scope:'全院 · 历史 ADR 继承',severity:'强提醒',severityClass:'warning',version:'v2026.08',previous:'上一版 v2026.05',status:'published',statusLabel:'已发布',statusClass:'',cases:'18 / 18',testAt:'08-03 02:00',evidence:'ADR 管理规范',updatedBy:'陈药师',updatedAt:'08-02 09:42'},
- {id:'HR-XDEPT-001',name:'跨科室有效用药冲突',scope:'住院患者 · 多科室参与',severity:'强提醒',severityClass:'warning',version:'v2026.08',previous:'首次发布',status:'published',statusLabel:'已发布',statusClass:'',cases:'24 / 24',testAt:'08-03 02:00',evidence:'跨科室医嘱管理制度',updatedBy:'信息科',updatedAt:'08-01 16:20'},
- {id:'HR-DOSE-004',name:'肾功能剂量调整边界',scope:'抗感染药 · eGFR 分层',severity:'强提醒',severityClass:'warning',version:'v2026.09-draft',previous:'当前生产 v2026.07',status:'review',statusLabel:'待审核',statusClass:'warning',cases:'31 / 31',testAt:'08-03 09:10',evidence:'院内剂量规则表',updatedBy:'刘药师',updatedAt:'08-03 09:15'},
- {id:'HR-MISS-001',name:'关键患者信息缺失提示',scope:'CAP 专病模板',severity:'一般提示',severityClass:'info',version:'v2026.08',previous:'上一版 v2026.06',status:'published',statusLabel:'已发布',statusClass:'',cases:'16 / 16',testAt:'08-03 02:00',evidence:'CAP 数据字典',updatedBy:'周医生',updatedAt:'08-01 11:34'}
-]
-const filteredRules=computed(()=>rules.filter(r=>(!query.value||`${r.id}${r.name}${r.evidence}`.includes(query.value))&&(status.value==='all'||r.status===status.value)&&(severity.value==='all'||r.severityClass===severity.value)))
-function openRule(rule:any){activeRule.value=rule;drawerVisible.value=true}
+import { mockFetchRules } from '../services/mockApi'
+import type { RuleItem } from '../services/mockApi'
+const query=ref(''),status=ref('all'),severity=ref('all'),drawerVisible=ref(false),editVisible=ref(false),activeRule=ref<RuleItem|null>(null),loading=ref(false)
+const rules=ref<RuleItem[]>([])
+async function loadRules(){loading.value=true;try{rules.value=await mockFetchRules()}finally{loading.value=false}}
+const filteredRules=computed(()=>rules.value.filter(r=>(!query.value||`${r.id}${r.name}${r.evidence}`.includes(query.value))&&(status.value==='all'||r.status===status.value)&&(severity.value==='all'||r.severityClass===severity.value)))
+function openRule(rule:RuleItem){activeRule.value=rule;drawerVisible.value=true}
+onMounted(loadRules)
 </script>
 <style scoped>
 .rules-panel{overflow-x:auto}.rules-panel table{min-width:1120px}.rules-panel td:first-child strong,.rule-name,.rules-panel td small{display:block}.rule-name{margin-top:3px;font-size:10px}.rules-panel td small{margin-top:3px;color:#73828a;font-size:8px}.evidence-ref{display:flex;align-items:center;gap:3px;padding:0;border:0;background:transparent;color:#286a88;font-size:9px;cursor:pointer}.table-actions{display:flex;gap:5px}.rule-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.rule-detail-heading h2{margin:7px 0 3px;font-size:16px}.rule-detail-heading p{margin:0;color:#6b7b83;font-size:9px}.rule-detail h3{margin:18px 0 7px;font-size:11px}.rule-detail pre{margin:0;padding:12px;overflow:auto;border-radius:5px;background:#17252d;color:#dbe7e9;font-size:10px;line-height:1.55}.result-preview{display:flex;gap:8px;padding:10px;border-left:4px solid #bd2f37;background:#fff1f1;color:#8d2229}.result-preview>div{display:grid;gap:3px}.result-preview strong{font-size:10px}.result-preview span{font-size:8px}.approval-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:7px}.approval-flow>div{display:flex;align-items:center;gap:6px;padding:8px;border:1px solid #d8e1e4;border-radius:4px}.approval-flow>div.done{color:#286c54}.approval-flow>div span{display:grid;gap:2px}.approval-flow strong{font-size:9px}.approval-flow small{color:#6f7f87;font-size:7px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-grid .el-select{width:100%}
