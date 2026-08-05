@@ -28,8 +28,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronRight, CircleCheck, ExternalLink, History, ShieldCheck, Stethoscope } from 'lucide-vue-next'
-import { mockFetchPatientContext } from '../services/mockApi'
-import type { PatientContextPayload } from '../services/mockApi'
+import { loadPatientContext } from '../services/dataAccess'
+import type { PatientContextPayload } from '../services/dataAccess'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,7 +39,7 @@ const patientId = computed(() => String(route.params.patientId || 'P001'))
 function goTimeline() { router.push(`/doctor/timeline/${patientId.value}`) }
 
 onMounted(async () => {
-  patient.value = await mockFetchPatientContext(patientId.value)
+  patient.value = await loadPatientContext(patientId.value)
 })
 </script>
 

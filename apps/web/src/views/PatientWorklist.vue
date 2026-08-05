@@ -2,7 +2,7 @@
   <div class="product-page">
     <header class="page-heading">
       <div><h1>患者工作列表</h1><p>按风险和推荐状态处理当前住院患者，患者事实与决策记录均保留来源和版本。</p></div>
-      <div class="page-heading-actions"><el-button :icon="RefreshCw" :loading="loading" @click="loadWorklist">刷新列表</el-button><el-button type="primary" :icon="UserRoundSearch">读取 HIS 患者上下文</el-button></div>
+      <div class="page-heading-actions"><el-button :icon="RefreshCw" :loading="loading" @click="loadRows">刷新列表</el-button><el-button type="primary" :icon="UserRoundSearch">读取 HIS 患者上下文</el-button></div>
     </header>
 
     <section class="summary-strip" aria-label="患者队列摘要">
@@ -56,7 +56,7 @@ const statusFilter = ref('all')
 const loading = ref(false)
 const rows = ref<WorklistItem[]>([])
 
-async function loadWorklist() {
+async function loadRows() {
   loading.value = true
   try {
     rows.value = await loadWorklist()
@@ -71,7 +71,7 @@ const filteredRows = computed(() => rows.value.filter(row => {
   return matchesQuery && (riskFilter.value === 'all' || riskFilter.value === risk) && (statusFilter.value === 'all' || statusMeta(row).status === statusFilter.value)
 }))
 
-onMounted(loadWorklist)
+onMounted(loadRows)
 
 function riskMeta(row: WorklistItem) {
   if (row.scenario === 'confirmed_allergy_second_admission') return { level: 'block', label: '硬阻断', detail: '确认过敏已继承', className: 'danger' }
