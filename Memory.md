@@ -191,3 +191,13 @@
 5. 验证：`npm run build`（vue-tsc + vite build）通过；Vitest 5/5 通过；Playwright 12/12 通过；9 个迁移页面逐页验证数据渲染正确；新增截图在 `apps/web/docs/validation/{overview,timeline,pharmacist,rules,evidence,integration,audit}-1920.png`。
 6. 生产接入映射：mockApi 与 coreApi 同构，后续 `VITE_UI_PREVIEW=false` 时页面切到 `coreApi.ts` 真实请求即可。
 
+## 2026-08-05 统一数据访问层交付状态
+
+1. 新增统一数据访问层 `apps/web/src/services/dataAccess.ts`，作为页面唯一数据入口，按 `VITE_UI_PREVIEW` 自动切换：true → mockApi（JSON 假数据）；false → 真实 coreApi，真实端点失败时降级到 mock 并 `console.warn`。
+2. 8 个页面已全部改为只依赖 dataAccess：患者工作列表、患者用药全景、长期用药追踪、风险复核队列、临床规则管理、证据资料中心、接口与同步、审计日志。
+3. 已接真实端点的（非 preview）：worklist（`/api/worklist`）、workbench（`/api/workbench/{id}`）、rules（`/api/rules`，含负载结构映射）；无对应后端列表端点的管理视图（患者全景、时间线、药师聚合、证据管理、连接器、审计）当前保持 mock，等待后端补契约。
+4. 类型经 dataAccess 统一 re-export；页面不再直接 import coreApi/mockApi。
+5. 验证：`npm run build` 通过；Vitest 5/5；Playwright 12/12；8 个页面经 dataAccess 渲染验证通过。
+6. 下一步：后端有真实环境后可逐个打开 dataAccess 中标注"待补契约"的函数对接真实端点。
+
+

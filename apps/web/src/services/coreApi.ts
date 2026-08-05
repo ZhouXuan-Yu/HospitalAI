@@ -263,3 +263,37 @@ export async function fetchResearchArtifact(uri: string): Promise<ResearchArtifa
   if (!response.ok) throw new Error(`科研产物读取失败：${response.status}`)
   return response.json()
 }
+
+export async function fetchPharmacistReviews(status = ''): Promise<PharmacistReviewTaskSummary[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  const response = await fetch(`/api/pharmacist/reviews${query}`)
+  if (!response.ok) throw new Error(`药师复核队列加载失败：${response.status}`)
+  return response.json()
+}
+
+export async function resolvePharmacistReview(reviewId: string, resolution: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`/api/pharmacist/reviews/${reviewId}/resolve`, {
+    method: 'POST',
+    headers: jsonRoleHeaders('pharmacist'),
+    body: JSON.stringify({ resolution })
+  })
+  if (!response.ok) throw new Error(`药师复核提交失败：${response.status}`)
+  return response.json()
+}
+
+export async function fetchCollaborationTasks(status = ''): Promise<CollaborationTaskSummary[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  const response = await fetch(`/api/collaboration/tasks${query}`)
+  if (!response.ok) throw new Error(`跨科室协同任务加载失败：${response.status}`)
+  return response.json()
+}
+
+export async function resolveCollaborationTask(taskId: string, resolution: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`/api/collaboration/tasks/${taskId}/resolve`, {
+    method: 'POST',
+    headers: jsonRoleHeaders('pharmacist'),
+    body: JSON.stringify({ resolution })
+  })
+  if (!response.ok) throw new Error(`跨科室协同任务提交失败：${response.status}`)
+  return response.json()
+}

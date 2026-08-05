@@ -31,6 +31,16 @@
 - 跨科室协同入口调用 `fetchCollaborationTasks()` 与 `resolveCollaborationTask()`。
 - 保持"打开患者决策台"跳转、风险三级展示、沟通记录(如后端无对应端点则明确降级/标记)。
 
+### R2.1: 后端 pharmacist/collaboration 查询补 join(已确认)
+
+后端 `PharmacistReviewTaskSummary` / `CollaborationTaskSummary` 缺页面展示字段,须补 join:
+
+- `pharmacist_review_task` JOIN `encounters`(department, diagnosis)JOIN `patients`(display_name, sex, age),可再 JOIN `medication_order`(drug_name)。
+- `collaboration_task` JOIN `encounters` / `patients` 补患者名与科室。
+- DTO 增加展示字段:`patientName`、`patientId`、`sex`、`age`、`department`、`diagnosis`、`drugNames`(药师 review)。
+- `WorkbenchRepository` 对应查询改为 join SQL。
+- 前端类型同步。
+
 ### R3: KnowledgeReviews.vue 接入真实数据
 
 - 替换 flowSimulation 演示数据为 `fetchKnowledgeSubmissions()`。
@@ -54,16 +64,20 @@
 ## Acceptance Criteria
 
 - [ ] `coreApi.ts` 新增 4 个 API 封装,与后端响应结构对齐,遵循现有错误处理模式。
+- [ ] 后端 pharmacist/collaboration 查询补 join,DTO 返回 patientName/sex/age/department/drugNames 等展示字段。
 - [ ] `PharmacistReviews.vue` 在集成模式显示真实队列,完成复核调用真实 resolve 端点并产生审计。
 - [ ] `KnowledgeReviews.vue` 在集成模式显示真实知识提交,批准/退回调用真实 review 端点。
 - [ ] 角色头正确:`pharmacist` 操作携带 `X-HospitalAI-Role: pharmacist`。
 - [ ] 降级模式保留演示数据并明确标识,集成模式不混用 mock。
 - [ ] `vue-tsc --noEmit` 通过。
+- [ ] 后端编译与现有测试通过(含 join 后新字段不破坏原断言)。
 - [ ] Vitest 测试覆盖新增封装(至少 mock fetch 的 4 个新函数)。
 - [ ] Playwright 1366 与 1920 两视口通过,页面无溢出。
 
 ## Files
 
+- `services/core-api/src/main/java/com/hospitalai/core/model/Dto.java`(DTO 加展示字段)
+- `services/core-api/src/main/java/com/hospitalai/core/repository/WorkbenchRepository.java`(join SQL)
 - `apps/web/src/services/coreApi.ts`(新增封装 + 类型)
 - `apps/web/src/views/PharmacistReviews.vue`(数据接入)
 - `apps/web/src/views/KnowledgeReviews.vue`(数据接入)
