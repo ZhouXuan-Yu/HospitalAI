@@ -2,22 +2,22 @@
   <div class="product-page">
     <header class="page-heading">
       <div><h1>患者用药全景</h1><p>按对当前处方决策的影响排序，原始事实、规则结果与辅助摘要分层展示。</p></div>
-      <div class="page-heading-actions"><el-button :icon="History" @click="$router.push('/doctor/timeline/P001')">长期时间线</el-button><el-button type="primary" :icon="Stethoscope" @click="$router.push('/doctor/workbench/E001')">进入处方决策</el-button></div>
+      <div class="page-heading-actions"><el-button :icon="History" @click="goTimeline">长期时间线</el-button><el-button type="primary" :icon="Stethoscope" @click="$router.push(`/doctor/workbench/${patient?.encounterId || 'E001'}`)">进入处方决策</el-button></div>
     </header>
 
     <section class="patient-banner surface-panel">
-      <div class="patient-banner-main"><div class="overview-avatar">A</div><div><div class="overview-name"><h2>合成患者A</h2><el-tag size="small" effect="plain">合成模拟数据</el-tag></div><p>女 · 66岁 · HIS-P001 · 呼吸内科 E001 · 数据版本 v3</p></div></div>
-      <div class="patient-banner-safety"><div><span>确认过敏</span><strong class="clear-text">未记录</strong></div><div><span>严重 ADR</span><strong class="clear-text">未记录</strong></div><div><span>特殊人群</span><strong>老年患者</strong></div><div><span>当前阻断</span><strong class="clear-text">0 项</strong></div></div>
+      <div class="patient-banner-main"><div class="overview-avatar">{{ patient?.displayName?.slice(-1) || 'A' }}</div><div><div class="overview-name"><h2>{{ patient?.displayName || '加载中' }}</h2><el-tag size="small" effect="plain">合成模拟数据</el-tag></div><p>{{ patient?.sex }} · {{ patient?.age }}岁 · {{ patient?.sourcePatientId }} · {{ patient?.department }} {{ patient?.encounterId }} · 数据版本 v{{ patient?.dataVersion }}</p></div></div>
+      <div class="patient-banner-safety"><div><span>确认过敏</span><strong :class="patient?.confirmedAllergy && patient.confirmedAllergy !== '未记录' ? 'danger-text' : 'clear-text'">{{ patient?.confirmedAllergy || '-' }}</strong></div><div><span>严重 ADR</span><strong :class="patient?.severeAdr && patient.severeAdr !== '未记录' ? 'danger-text' : 'clear-text'">{{ patient?.severeAdr || '-' }}</strong></div><div><span>特殊人群</span><strong>{{ patient?.specialPopulation || '-' }}</strong></div><div><span>当前阻断</span><strong class="clear-text">{{ patient?.activeBlocks || '0 项' }}</strong></div></div>
     </section>
 
     <div class="overview-grid">
       <div class="overview-main">
         <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前就诊与诊断</h2><el-tag size="small" type="success" effect="plain">当前有效</el-tag></div><div class="surface-panel-body"><div class="primary-diagnosis"><Stethoscope :size="20" /><div><strong>社区获得性肺炎</strong><span>HIS 诊断 · active · 2026-08-03 08:20</span></div></div><div class="participation-row"><span>主管科室</span><strong>呼吸内科</strong><span>参与科室</span><strong>无新增会诊</strong><span>住院第</span><strong>1 天</strong></div></div></section>
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>关键检验与趋势</h2><span>影响剂量与风险判断</span></div><div class="lab-grid"><article v-for="lab in labs" :key="lab.name"><div><span>{{ lab.name }}</span><el-tag size="small" :type="lab.flag ? 'warning' : 'info'" effect="plain">{{ lab.flag || '最新' }}</el-tag></div><strong>{{ lab.value }} <small>{{ lab.unit }}</small></strong><div class="spark-bars"><i v-for="(bar, index) in lab.trend" :key="index" :style="{ height: `${bar}%` }"></i></div><p>{{ lab.note }} · LIS · 08:50</p></article></div></section>
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前与近期用药</h2><span>计划、医嘱与实际暴露分层</span></div><table class="dense-table"><thead><tr><th>药品</th><th>状态</th><th>科室</th><th>给药信息</th><th>起止时间</th><th>来源</th></tr></thead><tbody><tr v-for="drug in medications" :key="drug.name"><td><strong>{{ drug.name }}</strong><small class="row-note">{{ drug.code }}</small></td><td><span class="status-pill" :class="drug.statusClass"><span class="dot"></span>{{ drug.status }}</span></td><td>{{ drug.department }}</td><td>{{ drug.route }}</td><td>{{ drug.time }}</td><td><button class="record-link">{{ drug.source }} <ExternalLink :size="11" /></button></td></tr></tbody></table></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>关键检验与趋势</h2><span>影响剂量与风险判断</span></div><div class="lab-grid"><article v-for="lab in patient?.labs || []" :key="lab.name"><div><span>{{ lab.name }}</span><el-tag size="small" :type="lab.flag ? 'warning' : 'info'" effect="plain">{{ lab.flag || '最新' }}</el-tag></div><strong>{{ lab.value }} <small>{{ lab.unit }}</small></strong><div class="spark-bars"><i v-for="(bar, index) in lab.trend" :key="index" :style="{ height: `${bar}%` }"></i></div><p>{{ lab.note }} · LIS · 08:50</p></article></div></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前与近期用药</h2><span>计划、医嘱与实际暴露分层</span></div><table class="dense-table"><thead><tr><th>药品</th><th>状态</th><th>科室</th><th>给药信息</th><th>起止时间</th><th>来源</th></tr></thead><tbody><tr v-for="drug in patient?.medications || []" :key="drug.name"><td><strong>{{ drug.name }}</strong><small class="row-note">{{ drug.code }}</small></td><td><span class="status-pill" :class="drug.statusClass"><span class="dot"></span>{{ drug.status }}</span></td><td>{{ drug.department }}</td><td>{{ drug.route }}</td><td>{{ drug.time }}</td><td><button class="record-link">{{ drug.source }} <ExternalLink :size="11" /></button></td></tr></tbody></table></section>
       </div>
       <aside class="overview-side">
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>跨就诊安全摘要</h2><span>全院范围</span></div><div class="surface-panel-body safety-history"><div class="safety-clear"><ShieldCheck :size="18" /><div><strong>未发现确认过敏或严重 ADR</strong><span>已核对 3 次历史就诊记录</span></div></div><div v-for="item in history" :key="item.title" class="history-item"><span>{{ item.date }}</span><div><strong>{{ item.title }}</strong><p>{{ item.text }}</p><small>{{ item.source }}</small></div></div></div></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>跨就诊安全摘要</h2><span>全院范围</span></div><div class="surface-panel-body safety-history"><div class="safety-clear"><ShieldCheck :size="18" /><div><strong>未发现确认过敏或严重 ADR</strong><span>已核对 3 次历史就诊记录</span></div></div><div v-for="item in patient?.history || []" :key="item.title" class="history-item"><span>{{ item.date }}</span><div><strong>{{ item.title }}</strong><p>{{ item.text }}</p><small>{{ item.source }}</small></div></div></div></section>
         <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>数据质量</h2><span>提交前复核</span></div><div class="surface-panel-body quality-summary"><div><CircleCheck :size="16" /><span>患者身份映射一致</span></div><div><CircleCheck :size="16" /><span>关键检验未缺失</span></div><div><CircleCheck :size="16" /><span>当前用药来源可追溯</span></div><button>查看全部原始事实与来源 <ChevronRight :size="14" /></button></div></section>
       </aside>
     </div>
@@ -25,17 +25,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ChevronRight, CircleCheck, ExternalLink, History, ShieldCheck, Stethoscope } from 'lucide-vue-next'
 import { mockFetchPatientContext } from '../services/mockApi'
 import type { PatientContextPayload } from '../services/mockApi'
 
 const route = useRoute()
+const router = useRouter()
 const patient = ref<PatientContextPayload | null>(null)
 const patientId = computed(() => String(route.params.patientId || 'P001'))
 
-function goTimeline() { window.$router?.push(`/doctor/timeline/${patientId.value}`) }
+function goTimeline() { router.push(`/doctor/timeline/${patientId.value}`) }
 
 onMounted(async () => {
   patient.value = await mockFetchPatientContext(patientId.value)
