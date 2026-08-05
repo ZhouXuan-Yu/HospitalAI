@@ -31,9 +31,11 @@ public final class Dto {
   public record DecisionRequest(String action, String candidateId, String reason, String modifiedRegimen, Map<String, Object> riskHandling) {}
   public record DecisionResponse(String decisionId, String action, String prescriptionDraftId, String draftStatus, String recommendationStatus, String pharmacistReviewId, List<String> auditEvents, boolean blocked) {}
   public record RecommendationSnapshotSummary(String recommendationId, String encounterId, String patientId, int dataVersion, String status, int candidateCount, int blockingCount, int strongAlertCount, Instant generatedAt, Instant expiredAt) {}
-  public record PharmacistReviewTaskSummary(String reviewId, String recommendationId, String decisionId, String encounterId, String status, String priority, String reason, String assignedRole, Instant createdAt, Instant resolvedAt, String resolution) {}
+  public record PharmacistReviewTaskSummary(String reviewId, String recommendationId, String decisionId, String encounterId, String status, String priority, String reason, String assignedRole, Instant createdAt, Instant resolvedAt, String resolution,
+      String patientName, String patientId, String sex, int age, String department, String diagnosis, List<String> drugNames) {}
   public record PharmacistReviewResolutionRequest(String resolution) {}
-  public record CollaborationTaskSummary(String taskId, String recommendationId, String encounterId, String sourceDepartment, String targetDepartment, String status, String reason, Instant createdAt, Instant resolvedAt, String resolution) {}
+  public record CollaborationTaskSummary(String taskId, String recommendationId, String encounterId, String sourceDepartment, String targetDepartment, String status, String reason, Instant createdAt, Instant resolvedAt, String resolution,
+      String patientName, String patientId, String sex, int age, String department, String diagnosis) {}
   public record CollaborationResolutionRequest(String resolution) {}
   public record PrescriptionDraftCallbackRequest(String hisStatus, String hisMessage) {}
   public record PrescriptionDraftStatus(String draftId, String decisionId, String encounterId, String status, String hisStatus, String hisMessage, Instant callbackAt) {}

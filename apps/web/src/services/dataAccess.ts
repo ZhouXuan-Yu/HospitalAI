@@ -1,8 +1,10 @@
 import {
   fetchWorklist as realFetchWorklist,
   fetchWorkbench as realFetchWorkbench,
+  fetchPharmacistReviews as realFetchPharmacistReviews,
   type WorklistItem,
-  type WorkbenchPayload
+  type WorkbenchPayload,
+  type PharmacistReviewTaskSummary
 } from './coreApi'
 import {
   mockFetchWorklist,

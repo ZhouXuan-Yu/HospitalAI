@@ -250,15 +250,18 @@ public class WorkbenchRepository {
 
   public List<CollaborationTaskSummary> collaborationTasks(String status) {
     String sql = """
-        SELECT task_id, recommendation_id, encounter_id, source_department, target_department, status, reason, created_at, resolved_at, resolution
-        FROM collaboration_task
+        SELECT t.task_id, t.recommendation_id, t.encounter_id, t.source_department, t.target_department, t.status, t.reason, t.created_at, t.resolved_at, t.resolution,
+               p.display_name, p.patient_id, p.sex, p.age, e.department, e.diagnosis
+        FROM collaboration_task t
+        JOIN encounters e ON e.encounter_id = t.encounter_id
+        JOIN patients p ON p.patient_id = e.patient_id
         """;
     Object[] args = new Object[] {};
     if (status != null && !status.isBlank()) {
-      sql += " WHERE status = ?";
+      sql += " WHERE t.status = ?";
       args = new Object[] { status };
     }
-    sql += " ORDER BY created_at DESC";
+    sql += " ORDER BY t.created_at DESC";
     return jdbc.query(sql, (rs, row) -> new CollaborationTaskSummary(
         rs.getString(1),
         rs.getString(2),
@@ -269,7 +272,13 @@ public class WorkbenchRepository {
         rs.getString(7),
         rs.getTimestamp(8).toInstant(),
         rs.getTimestamp(9) == null ? null : rs.getTimestamp(9).toInstant(),
-        rs.getString(10)), args);
+        rs.getString(10),
+        rs.getString(11),
+        rs.getString(12),
+        rs.getString(13),
+        rs.getInt(14),
+        rs.getString(15),
+        rs.getString(16)), args);
   }
 
   public void resolveCollaborationTask(String taskId, String resolution) {
@@ -285,16 +294,19 @@ public class WorkbenchRepository {
 
   public List<PharmacistReviewTaskSummary> pharmacistReviews(String status) {
     String sql = """
-        SELECT review_id, recommendation_id, decision_id, encounter_id, status, priority, reason, assigned_role, created_at, resolved_at, resolution
-        FROM pharmacist_review_task
+        SELECT r.review_id, r.recommendation_id, r.decision_id, r.encounter_id, r.status, r.priority, r.reason, r.assigned_role, r.created_at, r.resolved_at, r.resolution,
+               p.display_name, p.patient_id, p.sex, p.age, e.department, e.diagnosis
+        FROM pharmacist_review_task r
+        JOIN encounters e ON e.encounter_id = r.encounter_id
+        JOIN patients p ON p.patient_id = e.patient_id
         """;
     Object[] args = new Object[] {};
     if (status != null && !status.isBlank()) {
-      sql += " WHERE status = ?";
+      sql += " WHERE r.status = ?";
       args = new Object[] { status };
     }
-    sql += " ORDER BY created_at DESC";
-    return jdbc.query(sql, (rs, row) -> new PharmacistReviewTaskSummary(
+    sql += " ORDER BY r.created_at DESC";
+    List<PharmacistReviewTaskSummary> rows = jdbc.query(sql, (rs, row) -> new PharmacistReviewTaskSummary(
         rs.getString(1),
         rs.getString(2),
         rs.getString(3),
@@ -305,7 +317,31 @@ public class WorkbenchRepository {
         rs.getString(8),
         rs.getTimestamp(9).toInstant(),
         rs.getTimestamp(10) == null ? null : rs.getTimestamp(10).toInstant(),
-        rs.getString(11)), args);
+        rs.getString(11),
+        rs.getString(12),
+        rs.getString(13),
+        rs.getString(14),
+        rs.getInt(15),
+        rs.getString(16),
+        rs.getString(17),
+        List.of()), args);
+    for (int i = 0; i < rows.size(); i++) {
+      PharmacistReviewTaskSummary task = rows.get(i);
+      rows.set(i, new PharmacistReviewTaskSummary(
+          task.reviewId(), task.recommendationId(), task.decisionId(), task.encounterId(), task.status(), task.priority(), task.reason(), task.assignedRole(),
+          task.createdAt(), task.resolvedAt(), task.resolution(),
+          task.patientName(), task.patientId(), task.sex(), task.age(), task.department(), task.diagnosis(),
+          activeDrugNames(task.encounterId())));
+    }
+    return rows;
+  }
+
+  private List<String> activeDrugNames(String encounterId) {
+    return jdbc.queryForList("""
+        SELECT drug_name FROM medication_order
+        WHERE encounter_id = ? AND status = 'active'
+        ORDER BY drug_name
+        """, String.class, encounterId);
   }
 
   public void resolvePharmacistReview(String reviewId, String resolution) {

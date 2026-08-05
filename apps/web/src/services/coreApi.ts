@@ -105,6 +105,48 @@ export interface AdverseDrugReactionSummary {
   reviewedAt: string | null
 }
 
+export interface PharmacistReviewTaskSummary {
+  reviewId: string
+  recommendationId: string
+  decisionId: string | null
+  encounterId: string
+  status: string
+  priority: string
+  reason: string
+  assignedRole: string
+  createdAt: string
+  resolvedAt: string | null
+  resolution: string | null
+  // 展示字段（后端 join 后返回）
+  patientName?: string
+  patientId?: string
+  sex?: string
+  age?: number
+  department?: string
+  diagnosis?: string
+  drugNames?: string[]
+}
+
+export interface CollaborationTaskSummary {
+  taskId: string
+  recommendationId: string
+  encounterId: string
+  sourceDepartment: string
+  targetDepartment: string
+  status: string
+  reason: string
+  createdAt: string
+  resolvedAt: string | null
+  resolution: string | null
+  // 展示字段（后端 join 后返回）
+  patientName?: string
+  patientId?: string
+  sex?: string
+  age?: number
+  department?: string
+  diagnosis?: string
+}
+
 export interface KnowledgeSubmissionSummary {
   submissionId: string
   reportId: string
@@ -133,33 +175,6 @@ export interface ResearchArtifactContent {
   artifactUri: string
   sha256: string
   content: string
-}
-
-export interface PharmacistReviewTaskSummary {
-  reviewId: string
-  recommendationId: string
-  decisionId: string
-  encounterId: string
-  status: string
-  priority: string
-  reason: string
-  assignedRole: string
-  createdAt: string
-  resolvedAt: string | null
-  resolution: string | null
-}
-
-export interface CollaborationTaskSummary {
-  taskId: string
-  recommendationId: string
-  encounterId: string
-  sourceDepartment: string
-  targetDepartment: string
-  status: string
-  reason: string
-  createdAt: string
-  resolvedAt: string | null
-  resolution: string | null
 }
 
 const roleHeaders = (role: string) => ({ 'X-HospitalAI-Role': role })
