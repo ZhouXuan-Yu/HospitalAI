@@ -178,7 +178,8 @@ public class WorkbenchController {
   }
 
   @PostMapping("/pharmacist/reviews/{reviewId}/resolve")
-  public Map<String, Object> resolvePharmacistReview(@PathVariable String reviewId, @RequestBody PharmacistReviewResolutionRequest request) {
+  public Map<String, Object> resolvePharmacistReview(@PathVariable String reviewId, @RequestBody PharmacistReviewResolutionRequest request, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "pharmacist", "admin", "super_admin");
     if (request == null || request.resolution() == null || request.resolution().isBlank()) {
       throw new IllegalArgumentException("resolution is required");
     }
@@ -193,7 +194,8 @@ public class WorkbenchController {
   }
 
   @PostMapping("/collaboration/tasks/{taskId}/resolve")
-  public Map<String, Object> resolveCollaborationTask(@PathVariable String taskId, @RequestBody CollaborationResolutionRequest request) {
+  public Map<String, Object> resolveCollaborationTask(@PathVariable String taskId, @RequestBody CollaborationResolutionRequest request, @RequestHeader(value = "X-HospitalAI-Role", required = false) String role) {
+    requireAny(role, "pharmacist", "admin", "super_admin");
     if (request == null || request.resolution() == null || request.resolution().isBlank()) {
       throw new IllegalArgumentException("resolution is required");
     }

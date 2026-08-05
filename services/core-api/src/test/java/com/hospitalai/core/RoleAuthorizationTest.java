@@ -38,6 +38,20 @@ class RoleAuthorizationTest {
                 { "decision": "confirm", "note": "doctor should not confirm ADR" }
                 """))
         .andExpect(status().isForbidden());
+
+    mvc.perform(post("/api/pharmacist/reviews/REV-NOT-EXIST/resolve")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "resolution": "doctor should not resolve pharmacist review" }
+                """))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(post("/api/collaboration/tasks/COL-NOT-EXIST/resolve")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                { "resolution": "doctor should not resolve collaboration task" }
+                """))
+        .andExpect(status().isForbidden());
   }
 
   @Test

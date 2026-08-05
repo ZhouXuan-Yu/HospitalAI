@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { BookOpenCheck, CheckCircle2, Clock3, ExternalLink, GitBranch, GitCompareArrows, MessagesSquare, MoreHorizontal, Paperclip, Pill, RefreshCw, Search, Send, ShieldAlert, ShieldX, SlidersHorizontal, TriangleAlert } from 'lucide-vue-next'
-import { loadPharmacistReviews } from '../services/dataAccess'
+import { loadPharmacistReviews, resolvePharmacistReview } from '../services/dataAccess'
 import type { PharmacistReviewItem, PharmacistPayload } from '../services/dataAccess'
 
 const query=ref(''),queue=ref('all'),priority=ref('all'),onlyMine=ref(false),activeTab=ref('pending'),selectedId=ref('PR-2026-0084'),detailTab=ref('risk'),message=ref(''),resolution=ref(''),resolutionNote=ref(''),loading=ref(false)

@@ -54,9 +54,13 @@ class RecommendationWorkflowStateTest {
 
     mvc.perform(get("/api/pharmacist/reviews").param("status", "pending"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[*].reviewId", hasItem(reviewId)));
+        .andExpect(jsonPath("$[*].reviewId", hasItem(reviewId)))
+        .andExpect(jsonPath("$[*].patientName", hasItem("合成患者D")))
+        .andExpect(jsonPath("$[*].department", hasItem("呼吸内科")))
+        .andExpect(jsonPath("$[*].diagnosis", hasItem("社区获得性肺炎")));
 
     mvc.perform(post("/api/pharmacist/reviews/" + reviewId + "/resolve")
+            .header("X-HospitalAI-Role", "pharmacist")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "resolution": "药师已复核强提醒，建议医生在 HIS 正式确认前再次核对。" }
@@ -71,6 +75,7 @@ class RecommendationWorkflowStateTest {
     String taskId = mapper.readTree(collaboration).get(0).get("taskId").asText();
 
     mvc.perform(post("/api/collaboration/tasks/" + taskId + "/resolve")
+            .header("X-HospitalAI-Role", "pharmacist")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 { "resolution": "心内科已确认当前有效用药，建议正式开方前调整或停用重复风险药品。" }
