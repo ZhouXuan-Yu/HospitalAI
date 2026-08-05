@@ -25,22 +25,21 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ChevronRight, CircleCheck, ExternalLink, History, ShieldCheck, Stethoscope } from 'lucide-vue-next'
-const labs = [
-  { name: '肌酐', value: '76', unit: 'umol/L', trend: [48, 52, 49, 55], note: '较前稳定', flag: '' },
-  { name: 'C反应蛋白', value: '42', unit: 'mg/L', trend: [82, 72, 61, 48], note: '较昨日下降 18%', flag: '异常' },
-  { name: 'eGFR', value: '72', unit: 'mL/min', trend: [58, 60, 62, 64], note: '剂量调整参考', flag: '' },
-  { name: 'ALT', value: '28', unit: 'U/L', trend: [44, 46, 43, 45], note: '当前正常', flag: '' }
-]
-const medications = [
-  { name: '0.9%氯化钠注射液', code: 'D-NS-100', status: '当前有效', statusClass: '', department: '呼吸内科', route: '静脉滴注', time: '08-03 08:35 — 至今', source: 'HIS医嘱' },
-  { name: '布地奈德混悬液', code: 'D-BUD-021', status: '当前有效', statusClass: '', department: '呼吸内科', route: '雾化吸入', time: '08-03 09:10 — 至今', source: 'HIS医嘱' },
-  { name: '阿莫西林克拉维酸钾', code: 'D-AMOX', status: '历史有效', statusClass: 'info', department: '呼吸内科', route: '口服', time: '2025-11-02 — 11-09', source: '历史处方' }
-]
-const history = [
-  { date: '2025-11', title: '上次呼吸科住院', text: '阿莫西林克拉维酸钾治疗后症状改善，无不良反应记录。', source: '出院小结 · ENC-2025-11' },
-  { date: '2024-03', title: '门诊抗感染治疗', text: '疗效记录不完整，未形成可继承的有效方案结论。', source: '门诊病历 · ENC-2024-03' }
-]
+import { mockFetchPatientContext } from '../services/mockApi'
+import type { PatientContextPayload } from '../services/mockApi'
+
+const route = useRoute()
+const patient = ref<PatientContextPayload | null>(null)
+const patientId = computed(() => String(route.params.patientId || 'P001'))
+
+function goTimeline() { window.$router?.push(`/doctor/timeline/${patientId.value}`) }
+
+onMounted(async () => {
+  patient.value = await mockFetchPatientContext(patientId.value)
+})
 </script>
 
 <style scoped>
