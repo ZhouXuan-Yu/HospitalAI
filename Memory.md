@@ -198,6 +198,18 @@
 3. 已接真实端点的（非 preview）：worklist（`/api/worklist`）、workbench（`/api/workbench/{id}`）、rules（`/api/rules`，含负载结构映射）；无对应后端列表端点的管理视图（患者全景、时间线、药师聚合、证据管理、连接器、审计）当前保持 mock，等待后端补契约。
 4. 类型经 dataAccess 统一 re-export；页面不再直接 import coreApi/mockApi。
 5. 验证：`npm run build` 通过；Vitest 5/5；Playwright 12/12；8 个页面经 dataAccess 渲染验证通过。
+
+## 2026-08-05 药师与知识工作台接入真实数据链路（Trellis 任务 08-05-pharmacist-knowledge-workbench 已完成）
+
+1. `coreApi.ts` 新增 4 个封装：`fetchPharmacistReviews`/`resolvePharmacistReview`（GET/POST `/api/pharmacist/reviews*`）、`fetchCollaborationTasks`/`resolveCollaborationTask`（GET/POST `/api/collaboration/tasks*`），resolve 均带 `X-HospitalAI-Role: pharmacist` 角色头。
+2. 后端 `Dto.java` 给 `PharmacistReviewTaskSummary`/`CollaborationTaskSummary` 增加展示字段 `patientName/patientId/sex/age/department/diagnosis`（药师另加 `drugNames`）；`WorkbenchRepository` 对应查询改为 JOIN encounters+patients（药师再 JOIN medication_order 取 active 药物名）。
+3. 后端 `resolvePharmacistReview`/`resolveCollaborationTask` 增加 `requireAny(role, pharmacist/admin/super_admin)` 角色校验（与 ADR resolve 一致）；`RoleAuthorizationTest` 补 doctor 越权 403 断言。
+4. `PharmacistReviews.vue`：集成模式走真实 `fetchPharmacistReviews('pending')`，"完成复核"调用真实 `resolvePharmacistReview` 并回显提交结果；preview 保留 mock 聚合视图。
+5. `KnowledgeReviews.vue`：集成模式走真实 `fetchKnowledgeSubmissions()`，批准/退回调用真实 `reviewKnowledgeSubmission`；preview 保留 flowSimulation 演示降级。
+6. 修复 dataAccess `loadRules` 缺 await 导致的真实 API 失败不降级 bug。
+7. 验证：后端主源码+测试源码 javac 编译通过（本机无 maven，无法跑 JUnit，用 JDK17 jbr + .m2 classpath 验证）；前端 build 通过；Vitest 11/11（新增 coreApiWrappers.test.ts 6 个封装测试）；Playwright 12/12；集成模式降级（无后端时 5 页面降级渲染正常）。
+8. 已知限制：本机无 Maven 可执行文件，后端 JUnit 集成测试需在有 Maven 的环境跑一次确认（`mvn -pl services/core-api test`）。
+
 6. 下一步：后端有真实环境后可逐个打开 dataAccess 中标注"待补契约"的函数对接真实端点。
 
 

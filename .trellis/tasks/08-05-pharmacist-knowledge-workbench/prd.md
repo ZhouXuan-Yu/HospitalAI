@@ -63,16 +63,16 @@
 
 ## Acceptance Criteria
 
-- [ ] `coreApi.ts` 新增 4 个 API 封装,与后端响应结构对齐,遵循现有错误处理模式。
-- [ ] 后端 pharmacist/collaboration 查询补 join,DTO 返回 patientName/sex/age/department/drugNames 等展示字段。
-- [ ] `PharmacistReviews.vue` 在集成模式显示真实队列,完成复核调用真实 resolve 端点并产生审计。
-- [ ] `KnowledgeReviews.vue` 在集成模式显示真实知识提交,批准/退回调用真实 review 端点。
-- [ ] 角色头正确:`pharmacist` 操作携带 `X-HospitalAI-Role: pharmacist`。
-- [ ] 降级模式保留演示数据并明确标识,集成模式不混用 mock。
-- [ ] `vue-tsc --noEmit` 通过。
-- [ ] 后端编译与现有测试通过(含 join 后新字段不破坏原断言)。
-- [ ] Vitest 测试覆盖新增封装(至少 mock fetch 的 4 个新函数)。
-- [ ] Playwright 1366 与 1920 两视口通过,页面无溢出。
+- [x] `coreApi.ts` 新增 4 个 API 封装,与后端响应结构对齐,遵循现有错误处理模式。
+- [ ] 后端 pharmacist/collaboration 查询补 join,DTO 返回 patientName/sex/age/department/drugNames 等展示字段(后端环境就绪后单独任务)。
+- [x] `PharmacistReviews.vue` 在集成模式显示真实队列,完成复核调用真实 resolve 端点并产生审计。
+- [x] `KnowledgeReviews.vue` 在集成模式显示真实知识提交,批准/退回调用真实 review 端点。
+- [x] 角色头正确:`pharmacist` 操作携带 `X-HospitalAI-Role: pharmacist`(后端 resolve 端点已加 requireAny 校验)。
+- [x] 降级模式保留演示数据并明确标识,集成模式不混用 mock。
+- [x] `vue-tsc --noEmit` 通过。
+- [ ] 后端编译与现有测试通过(含 join 后新字段不破坏原断言)——需 Java/Maven 环境。
+- [x] Vitest 测试覆盖新增封装(新增 coreApiWrappers.test.ts,6 个测试)。
+- [x] Playwright 1366 与 1920 两视口通过(preview 模式 12/12)。
 
 ## Files
 

@@ -65,7 +65,7 @@ public final class Dto {
   public record ResearchReportReviewRequest(String reviewNote) {}
   public record ResearchTaskFailureRequest(String errorMessage) {}
   public record KnowledgeSubmissionRequest(String reportId, String submissionType, String submittedBy) {}
-  public record KnowledgeSubmissionSummary(String submissionId, String reportId, String status, String submissionType, String title, String submittedBy, Instant submittedAt, Instant publishedAt) {}
+  public record KnowledgeSubmissionSummary(String submissionId, String reportId, String status, String submissionType, String title, String submittedBy, Instant submittedAt, Instant publishedAt, List<String> reviewedRoles) {}
   public record KnowledgeReviewRequest(String reviewerRole, String decision, String note) {}
   public record KnowledgeReviewSummary(String reviewId, String submissionId, String reviewerRole, String decision, String note, Instant reviewedAt) {}
   public record SnapshotImportRequest(String sourceSystem, String sourceBatchId, Map<String, Object> payload) {}

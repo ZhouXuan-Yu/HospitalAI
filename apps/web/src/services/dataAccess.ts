@@ -185,10 +185,10 @@ export async function submitKnowledgeReview(submissionId: string, reviewerRole: 
 }
 
 // —— 规则治理 ——
-export function loadRules(): Promise<RuleItem[]> {
+export async function loadRules(): Promise<RuleItem[]> {
   if (isPreview()) return mockFetchRules()
   try {
-    return realFetchRulesWithMap()
+    return await realFetchRulesWithMap()
   } catch (error) {
     console.warn('[dataAccess] rules 降级到 mock：', error)
     return mockFetchRules()
