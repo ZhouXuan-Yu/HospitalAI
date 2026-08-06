@@ -37,6 +37,38 @@ def test_returns_insufficient_evidence_for_out_of_scope_diagnosis():
     assert response.status_code == 200
     assert response.json()["status"] == "insufficient_evidence"
     assert response.json()["snippets"] == []
+    assert response.json()["traceSummary"]["model"] == "deterministic-guardrail"
+
+
+def test_deepseek_explanation_is_optional_and_bounded(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setenv("DEEPSEEK_API_BASE", "http://deepseek.test")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+    def fake_post(url, headers, json, timeout):
+      assert url == "http://deepseek.test/chat/completions"
+      assert headers["Authorization"] == "Bearer test-key"
+      assert "剂量" in json["messages"][0]["content"]
+      return httpx.Response(
+          200,
+          request=httpx.Request("POST", url),
+          json={"choices": [{"message": {"content": "来自患者事实、硬规则和受控证据的简要说明；最终处方由医生审核。"}}]},
+      )
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    response = client.post(
+        "/v1/evidence/retrieve",
+        json={
+            "encounterId": "E001",
+            "patientId": "P001",
+            "diagnosis": "社区获得性肺炎",
+            "facts": ["诊断", "C反应蛋白"],
+        },
+    )
+    body = response.json()
+    assert "deepseek_explanation" in body["pipeline"]
+    assert body["traceSummary"]["model"] == "deepseek-chat"
+    assert body["explanationDraft"].startswith("来自患者事实")
 
 
 def test_retrieves_published_core_evidence(monkeypatch):

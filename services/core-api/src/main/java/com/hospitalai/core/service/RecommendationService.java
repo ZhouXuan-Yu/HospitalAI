@@ -168,7 +168,11 @@ public class RecommendationService {
         throw new IllegalStateException(httpResponse.statusCode() + " from AI service: " + httpResponse.body());
       }
       Map<String, Object> response = mapper.readValue(httpResponse.body(), new TypeReference<>() {});
-      stages.add(stage("controlled_evidence", "complete", started, "FastAPI 受控证据检索完成"));
+      var pipeline = response.get("pipeline");
+      var evidenceDetail = String.valueOf(pipeline).contains("deepseek_explanation")
+          ? "FastAPI 受控证据检索完成，DeepSeek 已生成简要溯源说明"
+          : "FastAPI 受控证据检索完成";
+      stages.add(stage("controlled_evidence", "complete", started, evidenceDetail));
       @SuppressWarnings("unchecked")
       List<Map<String, Object>> items = (List<Map<String, Object>>) response.getOrDefault("snippets", List.of());
       return items.stream().map(item -> new EvidenceSnippet(

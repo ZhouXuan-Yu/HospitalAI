@@ -38,6 +38,25 @@ test('doctor can view normal patient and submit simulated draft', async ({ page 
   await page.screenshot({ path: `../../docs/validation/ui-workbench-${test.info().project.name}.png`, fullPage: true })
 })
 
+test('doctor can expand concise provenance and drug combination source details', async ({ page }) => {
+  await page.goto('/doctor/workbench/E001')
+  await expect(page.getByTestId('doctor-workbench')).toBeVisible()
+  await expect(page.getByText('关键输入').first()).toBeHidden()
+  await page.getByText('推理依据与流程阶段').click()
+  await expect(page.getByText('患者事实').first()).toBeVisible()
+  await expect(page.getByText('关键输入').first()).toBeVisible()
+  await expect(page.getByText('处理逻辑').first()).toBeVisible()
+  await expect(page.getByText('输出结果').first()).toBeVisible()
+
+  await expect(page.getByText('核心作用').first()).toBeHidden()
+  await page.getByText('当前推荐药品组合说明').click()
+  const drugCombo = page.getByLabel('当前推荐药品组合说明')
+  await expect(drugCombo.getByText('组合摘要')).toBeVisible()
+  await drugCombo.getByText('头孢曲松', { exact: true }).click()
+  await expect(drugCombo.getByText('核心作用').first()).toBeVisible()
+  await expect(drugCombo.getByText('权威资料出处').first()).toBeVisible()
+})
+
 test('confirmed allergy blocks draft creation on second admission', async ({ page }) => {
   await page.goto('/doctor/workbench/E002-2')
   await expect(page.getByLabel('规则风险').getByText(/已确认药物过敏/).first()).toBeVisible()

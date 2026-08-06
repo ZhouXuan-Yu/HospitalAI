@@ -52,8 +52,19 @@
       <el-skeleton :rows="10" animated />
     </div>
 
-    <div v-if="store.payload" class="workspace-grid" data-testid="doctor-workbench">
+    <div
+      v-if="store.payload"
+      class="workspace-grid"
+      :class="{ 'left-collapsed': leftCollapsed, 'right-collapsed': rightCollapsed }"
+      data-testid="doctor-workbench"
+    >
       <aside class="panel patient-panel" aria-label="患者上下文">
+        <button class="collapsed-rail patient-rail" type="button" @click="leftCollapsed = false">
+          <Stethoscope :size="18" />
+          <strong>患者输入</strong>
+          <span>{{ store.payload.patient.displayName }}</span>
+        </button>
+        <div v-show="!leftCollapsed" class="panel-body">
         <section class="patient-identity">
           <div class="patient-heading">
             <div class="patient-avatar" aria-hidden="true">{{ patientInitial }}</div>
@@ -71,6 +82,12 @@
             <div><span>数据版本</span><strong>v{{ store.payload.encounter.dataVersion }}</strong></div>
             <div><span>内部患者</span><strong>{{ store.payload.patient.patientId }}</strong></div>
           </div>
+          <div class="patient-summary-card">
+            <span>主诉 / 当前问题</span>
+            <strong>{{ chiefComplaintSummary }}</strong>
+            <small>{{ safetySummaryLine }}</small>
+          </div>
+          <el-button class="collapse-panel-button" text size="small" @click="leftCollapsed = true">收起患者信息</el-button>
         </section>
 
         <section class="safety-summary" aria-labelledby="safety-summary-title">
@@ -115,11 +132,11 @@
               </div>
             </section>
 
-            <section v-for="group in currentFactGroups" :key="group.key" class="context-section">
-              <div class="section-title-row">
-                <h2>{{ group.title }}</h2>
-                <span>{{ group.items.length }} 项</span>
-              </div>
+            <details v-for="group in currentFactGroups" :key="group.key" class="context-section fold-section">
+              <summary>
+                <span>{{ group.title }}</span>
+                <small>{{ group.items[0]?.label }} · {{ group.items.length }} 项</small>
+              </summary>
               <div class="fact-list">
                 <article v-for="fact in group.items" :key="fact.sourceId + fact.label" class="clinical-fact">
                   <div class="fact-icon" :class="fact.missingStatus !== 'present' ? 'is-missing' : ''">
@@ -138,7 +155,7 @@
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
             <section v-if="dataQualityAlerts.length" class="context-section data-quality-context">
               <div class="section-title-row">
@@ -178,39 +195,88 @@
             </section>
           </el-tab-pane>
         </el-tabs>
+        </div>
       </aside>
 
       <section class="panel recommendation-panel" aria-label="候选方案与医生审核">
         <div class="recommendation-heading">
           <div>
             <div class="eyebrow">处方前辅助决策</div>
-            <h2>候选方案比较</h2>
-            <p>社区获得性肺炎 · {{ store.payload.recommendationId }}</p>
+            <h2>DeepSeek 处方推荐结果</h2>
+            <p>{{ store.payload.encounter.diagnosis }} · {{ store.payload.recommendationId }}</p>
           </div>
-          <div class="recommendation-state" :class="store.aiDegraded ? 'degraded' : ''">
-            <Bot :size="16" aria-hidden="true" />
-            <span>{{ store.aiDegraded ? '解释服务降级' : '受控解释已完成' }}</span>
+          <div class="recommendation-heading-actions">
+            <el-button :icon="RefreshCw" :loading="store.loading" @click="load">生成/刷新推荐</el-button>
+            <el-button :icon="Stethoscope" @click="loadSimulatedPatient">模拟患者</el-button>
+            <div class="recommendation-state" :class="store.aiDegraded ? 'degraded' : ''">
+              <Bot :size="16" aria-hidden="true" />
+              <span>{{ store.aiDegraded ? '解释服务降级' : 'DeepSeek 流程完成' }}</span>
+            </div>
           </div>
         </div>
 
-        <section class="pipeline" aria-label="推荐生成阶段">
-          <div
-            v-for="(stage, index) in normalizedStages"
-            :key="stage.name"
-            class="pipeline-stage"
-            :class="stage.status"
-            :title="stage.detail"
-          >
-            <div class="stage-marker">
-              <component :is="stage.status === 'complete' ? CircleCheck : stage.status === 'degraded' ? CircleAlert : LoaderCircle" :size="16" />
-            </div>
-            <div>
-              <strong>{{ stageLabel(stage.name) }}</strong>
-              <span>{{ stage.status === 'complete' ? '已完成' : stage.status === 'degraded' ? '已降级' : '处理中' }} · {{ stage.elapsedMs }}ms</span>
-            </div>
-            <ChevronRight v-if="index < normalizedStages.length - 1" class="stage-arrow" :size="15" aria-hidden="true" />
+        <section class="core-result-card" :class="{ loading: store.loading || store.decisionLoading, blocked: selectedBlocked || store.hasBlockingRisk }">
+          <div class="core-result-main">
+            <span class="selection-kicker">核心推荐</span>
+            <h3>{{ selectedCandidate?.name || '等待候选方案' }}</h3>
+            <p>{{ selectedCandidate?.regimen || '输入或选择模拟患者后生成推荐结果。' }}</p>
+          </div>
+          <div class="core-result-side">
+            <el-tag v-if="selectedBlocked || store.hasBlockingRisk" type="danger" effect="dark">硬阻断</el-tag>
+            <el-tag v-else-if="selectedCandidate?.risks.length" type="warning" effect="plain">需复核</el-tag>
+            <el-tag v-else type="success" effect="plain">可进入医生审核</el-tag>
+            <span>{{ selectedCandidate?.reason || '推荐依据会在结果生成后显示。' }}</span>
+          </div>
+          <div class="core-monitoring">
+            <span v-for="item in selectedCandidate?.monitoring || []" :key="item">{{ item }}</span>
           </div>
         </section>
+
+        <section class="candidate-strip" aria-label="候选方案快速选择">
+          <button
+            v-for="candidate in store.payload.candidates"
+            :key="candidate.candidateId"
+            type="button"
+            :class="{ selected: candidate.candidateId === store.selectedCandidateId, blocked: candidate.blocked }"
+            @click="selectCandidate(candidate.candidateId)"
+          >
+            <strong>{{ candidate.name }}</strong>
+            <span>{{ candidate.regimen }}</span>
+          </button>
+        </section>
+
+        <details class="reasoning-details">
+          <summary>
+            <span>推理依据与流程阶段</span>
+            <small>默认收起，展开查看完整决策链</small>
+          </summary>
+        <section class="decision-chain" aria-label="完整决策链">
+          <article v-for="item in decisionChain" :key="item.key" :class="item.status">
+            <div class="stage-marker">
+              <component :is="item.status === 'complete' ? CircleCheck : item.status === 'degraded' ? CircleAlert : LoaderCircle" :size="16" />
+            </div>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.summary }}</span>
+              <small>{{ item.detail }}</small>
+              <dl class="chain-proof">
+                <div>
+                  <dt>关键输入</dt>
+                  <dd>{{ item.inputs }}</dd>
+                </div>
+                <div>
+                  <dt>处理逻辑</dt>
+                  <dd>{{ item.logic }}</dd>
+                </div>
+                <div>
+                  <dt>输出结果</dt>
+                  <dd>{{ item.output }}</dd>
+                </div>
+              </dl>
+            </div>
+          </article>
+        </section>
+        </details>
 
         <el-alert
           v-if="store.aiDegraded"
@@ -221,6 +287,11 @@
           show-icon
         />
 
+        <details class="reasoning-details comparison-details" open>
+          <summary>
+            <span>候选方案横向对比</span>
+            <small>{{ store.payload.candidates.length }} 个目录内候选</small>
+          </summary>
         <section class="matrix-section" aria-labelledby="candidate-matrix-title">
           <div class="section-title-row matrix-title-row">
             <div>
@@ -297,6 +368,42 @@
             </table>
           </div>
         </section>
+        </details>
+
+        <details class="reasoning-details drug-combo-details">
+          <summary>
+            <span>当前推荐药品组合说明</span>
+            <small>{{ selectedDrugGuides.length }} 种药品 · 默认收起供核对</small>
+          </summary>
+          <section class="drug-combo-section" aria-label="当前推荐药品组合说明">
+            <div class="drug-combo-overview">
+              <div>
+                <span class="selection-kicker">组合摘要</span>
+                <strong>{{ selectedCandidate?.regimen || '尚未选择推荐方案' }}</strong>
+                <small>{{ selectedDrugSourceLine }}</small>
+              </div>
+              <el-tag size="small" effect="plain">仅供医生核对</el-tag>
+            </div>
+
+            <div class="drug-guide-list">
+              <details v-for="drug in selectedDrugGuides" :key="drug.code" class="drug-guide-item">
+                <summary>
+                  <span><Pill :size="15" />{{ drug.name }}</span>
+                  <small>{{ drug.role }}</small>
+                </summary>
+                <dl class="drug-guide-grid">
+                  <div><dt>核心作用</dt><dd>{{ drug.role }}</dd></div>
+                  <div><dt>适应症</dt><dd>{{ drug.indication }}</dd></div>
+                  <div><dt>用法用量</dt><dd>{{ drug.dosage }}</dd></div>
+                  <div><dt>相互作用</dt><dd>{{ drug.interactions }}</dd></div>
+                  <div><dt>常见不良反应</dt><dd>{{ drug.adverseReactions }}</dd></div>
+                  <div><dt>注意事项</dt><dd>{{ drug.precautions }}</dd></div>
+                  <div class="drug-guide-source"><dt>权威资料出处</dt><dd>{{ drug.sources }}</dd></div>
+                </dl>
+              </details>
+            </div>
+          </section>
+        </details>
 
         <section class="decision-dock" aria-labelledby="decision-title">
           <div class="decision-summary">
@@ -391,12 +498,21 @@
 
       <button v-if="rightDrawerVisible" class="drawer-backdrop" type="button" aria-label="关闭安全审查" @click="rightDrawerVisible = false"></button>
       <aside class="panel safety-panel" :class="{ 'drawer-open': rightDrawerVisible }" aria-label="风险与证据">
+        <button class="collapsed-rail safety-rail" type="button" @click="rightCollapsed = false">
+          <ShieldAlert :size="18" />
+          <strong>参考记录</strong>
+          <span>{{ unresolvedAlertCount }} 项风险</span>
+        </button>
+        <div v-show="!rightCollapsed" class="panel-body">
         <div class="safety-panel-header">
           <div>
             <div class="eyebrow">处方前安全审查</div>
             <h2>风险与证据</h2>
           </div>
-          <el-button class="drawer-close" :icon="X" circle text aria-label="关闭安全审查" @click="rightDrawerVisible = false" />
+          <div class="side-panel-actions">
+            <el-button class="drawer-close" :icon="X" circle text aria-label="关闭安全审查" @click="rightDrawerVisible = false" />
+            <el-button :icon="ChevronRight" circle text aria-label="收起参考记录" @click="rightCollapsed = true" />
+          </div>
         </div>
 
         <div class="risk-overview">
@@ -485,6 +601,7 @@
             </section>
           </el-tab-pane>
         </el-tabs>
+        </div>
       </aside>
     </div>
 
@@ -592,6 +709,8 @@ const encounterId = ref(String(route.params.encounterId || 'E001'))
 const reason = ref('已核对患者事实、规则风险与证据，仅生成 HIS 处方草稿')
 const patientTab = ref('current')
 const rightTab = ref('risks')
+const leftCollapsed = ref(false)
+const rightCollapsed = ref(false)
 const rightDrawerVisible = ref(false)
 const evidenceDrawerVisible = ref(false)
 const sourceDrawerVisible = ref(false)
@@ -605,6 +724,62 @@ const outcomeForm = ref({ actualRegimen: '', treatmentResponse: 'improved' as Ou
 const selectedCandidate = computed(() => store.selectedCandidate)
 const flowDecision = computed(() => flow.decisionFor(encounterId.value))
 const flowOutcome = computed(() => flow.outcomes[encounterId.value])
+const drugGuideMap: Record<string, {
+  code: string
+  name: string
+  role: string
+  indication: string
+  dosage: string
+  interactions: string
+  adverseReactions: string
+  precautions: string
+  sources: string
+}> = {
+  'D-CEF': {
+    code: 'D-CEF',
+    name: '头孢曲松',
+    role: '第三代头孢菌素，覆盖常见肺炎链球菌及部分革兰阴性菌。',
+    indication: '社区获得性肺炎等敏感菌感染，需结合院内目录和培养结果复核。',
+    dosage: '剂量待医生按院内剂量规则、肝肾功能和感染严重程度确认。',
+    interactions: '避免与含钙溶液同管混合；合用抗凝药时关注出血风险。',
+    adverseReactions: '胃肠道反应、皮疹、肝酶升高、胆泥样改变等。',
+    precautions: '复核β内酰胺过敏史；严重肝肾功能异常或胆道风险需药师参与。',
+    sources: '药品说明书；院内抗菌药物目录；CAP 诊疗指南/院内路径。'
+  },
+  'D-AZI': {
+    code: 'D-AZI',
+    name: '阿奇霉素',
+    role: '大环内酯类，补充非典型病原体覆盖。',
+    indication: 'CAP 组合治疗中覆盖支原体、衣原体等非典型病原体风险。',
+    dosage: '剂量待医生按院内剂量规则、给药途径和疗程要求确认。',
+    interactions: '合用延长 QT 药物、华法林或地高辛时需复核相互作用。',
+    adverseReactions: '胃肠道反应、QT 间期延长、肝酶升高等。',
+    precautions: '有心律失常、低钾低镁或肝功能异常时需强化监测。',
+    sources: '药品说明书；CAP 诊疗指南/院内路径；院内相互作用规则。'
+  },
+  'D-AMOX': {
+    code: 'D-AMOX',
+    name: '阿莫西林克拉维酸钾',
+    role: 'β内酰胺/β内酰胺酶抑制剂复方，覆盖常见呼吸道细菌。',
+    indication: '非重症或口服序贯场景下的敏感菌感染候选方案。',
+    dosage: '剂量待医生按院内剂量规则、肾功能和给药途径确认。',
+    interactions: '合用华法林、别嘌醇或甲氨蝶呤时需复核相互作用。',
+    adverseReactions: '腹泻、恶心、皮疹、肝功能异常等。',
+    precautions: '确认青霉素过敏史；既往胆汁淤积或肝损伤需谨慎。',
+    sources: '药品说明书；院内抗菌药物目录；CAP 诊疗指南/院内路径。'
+  },
+  'D-LEV': {
+    code: 'D-LEV',
+    name: '左氧氟沙星',
+    role: '呼吸喹诺酮，覆盖常见及部分非典型呼吸道病原体。',
+    indication: '特定条件下的 CAP 替代方案，需结合禁忌证和风险获益审核。',
+    dosage: '剂量待医生按院内剂量规则和肾功能调整确认。',
+    interactions: '与含金属阳离子制剂间隔给药；合用 QT 延长药或糖皮质激素需谨慎。',
+    adverseReactions: '肌腱损伤、QT 延长、中枢神经反应、血糖异常、胃肠道反应等。',
+    precautions: '老年、肾功能不全、癫痫风险或既往喹诺酮严重不良反应需重点复核。',
+    sources: '药品说明书；院内抗菌药物目录；CAP 诊疗指南/院内路径。'
+  }
+}
 const draftSteps = [
   { key: 'CREATED', label: '医生审核', meta: '草稿已创建' },
   { key: 'WRITE_QUEUED', label: '可靠任务', meta: '等待适配器' },
@@ -629,6 +804,22 @@ const missingItems = computed(() => {
 })
 const sortedAlerts = computed(() => [...(store.payload?.alerts ?? [])].sort((a, b) => riskOrder(a.level) - riskOrder(b.level)))
 const selectedEvidence = computed(() => selectedCandidate.value?.evidence ?? [])
+const selectedDrugGuides = computed(() => (selectedCandidate.value?.drugCodes ?? []).map(code => drugGuideMap[code] ?? {
+  code,
+  name: code,
+  role: '待药学知识库补充该药品的结构化说明。',
+  indication: '待补充。',
+  dosage: '待医生按院内剂量规则确认。',
+  interactions: '待补充。',
+  adverseReactions: '待补充。',
+  precautions: '待补充。',
+  sources: '待接入院内药品说明书、规则库或已发布证据。'
+}))
+const selectedDrugSourceLine = computed(() => {
+  if (!selectedCandidate.value) return '选择候选方案后显示组合说明。'
+  const evidenceCount = selectedCandidate.value.evidence.length
+  return evidenceCount ? `结合 ${evidenceCount} 条受控证据、院内目录和药品说明书摘要。` : '当前候选缺少可定位证据，仅显示目录级药品核对要点。'
+})
 const historicalFacts = computed(() => store.payload?.facts.filter(fact => /历史|过敏|不良反应|跨科室/.test(fact.label)) ?? [])
 const currentFacts = computed(() => store.payload?.facts.filter(fact => !historicalFacts.value.includes(fact)) ?? [])
 const currentFactGroups = computed(() => {
@@ -644,10 +835,69 @@ const currentFactGroups = computed(() => {
     return { ...group, items }
   }).filter(group => group.items.length)
 })
+const chiefComplaintSummary = computed(() => {
+  const diagnosis = store.payload?.encounter.diagnosis ?? ''
+  const firstFact = currentFacts.value[0]
+  return firstFact ? `${diagnosis}；${firstFact.label}：${firstFact.value}` : diagnosis
+})
+const safetySummaryLine = computed(() => {
+  if (blockingAlerts.value.length) return `命中 ${blockingAlerts.value.length} 项硬阻断，不能生成处方草稿`
+  if (strongAlerts.value.length) return `命中 ${strongAlerts.value.length} 项强提醒，需要医生记录处理`
+  return '未命中硬阻断，仍需核对患者事实与证据边界'
+})
 const normalizedStages = computed<StageState[]>(() => {
   const stages = store.payload?.stages ?? []
   return ['patient_context', 'deterministic_rules', 'controlled_evidence', 'candidate_ranking']
     .map(name => stages.find(stage => stage.name === name) ?? { name, status: 'pending', elapsedMs: 0, detail: '等待上游阶段完成' })
+})
+const decisionChain = computed(() => {
+  const stageMap = Object.fromEntries(normalizedStages.value.map(stage => [stage.name, stage]))
+  const patientStage = stageMap.patient_context
+  const ruleStage = stageMap.deterministic_rules
+  const evidenceStage = stageMap.controlled_evidence
+  const rankingStage = stageMap.candidate_ranking
+  return [
+    {
+      key: 'patient',
+      title: '患者事实',
+      status: patientStage?.status ?? 'pending',
+      summary: chiefComplaintSummary.value,
+      detail: `诊断、主诉摘要、检验、过敏史和当前用药已接入；${patientStage?.elapsedMs ?? 0}ms`,
+      inputs: `HIS/EMR 患者 ${store.payload?.patient.displayName ?? '-'}、诊断 ${store.payload?.encounter.diagnosis ?? '-'}、${currentFacts.value.length} 条本次事实。`,
+      logic: '合并结构化诊断、检验、过敏史和当前用药；缺失值保持缺失，不按正常值填充。',
+      output: chiefComplaintSummary.value
+    },
+    {
+      key: 'rules',
+      title: '硬规则校验',
+      status: ruleStage?.status ?? 'pending',
+      summary: safetySummaryLine.value,
+      detail: ruleStage?.detail ?? '等待规则引擎返回过敏、禁忌、相互作用和缺失数据判断',
+      inputs: `${store.payload?.alerts.length ?? 0} 条规则提醒、${missingItems.value.length} 项缺失或待补信息。`,
+      logic: '硬阻断优先，其次强提醒；过敏、禁忌、相互作用和关键缺失均保留到审核记录。',
+      output: safetySummaryLine.value
+    },
+    {
+      key: 'deepseek',
+      title: 'DeepSeek 推理',
+      status: evidenceStage?.status ?? 'pending',
+      summary: store.aiDegraded ? '解释服务降级，仅保留事实、规则和候选状态' : `${selectedEvidence.value.length} 条受控证据参与解释`,
+      detail: evidenceStage?.detail ?? '只基于受控证据生成解释草稿，不补写缺失医学依据',
+      inputs: `${selectedEvidence.value.length} 条证据片段、患者事实摘要和已生成候选方案。`,
+      logic: 'DeepSeek 仅用于生成简要溯源说明；不覆盖硬规则，不直接决定药品、剂量或疗程。',
+      output: store.aiDegraded ? 'AI 解释降级，页面显示确定性流程结果。' : '返回可供医生展开核对的解释摘要。'
+    },
+    {
+      key: 'recommendation',
+      title: '推荐生成',
+      status: rankingStage?.status ?? 'pending',
+      summary: selectedCandidate.value ? `${selectedCandidate.value.name}：${selectedCandidate.value.regimen}` : '等待候选方案生成',
+      detail: rankingStage?.detail ?? '结合目录内候选、风险状态和监测要求生成可审核推荐',
+      inputs: `${store.payload?.candidates.length ?? 0} 个目录内候选、风险等级、监测要求和证据状态。`,
+      logic: '先排除阻断方案，再按适用理由、风险和监测负担呈现候选，医生保留最终决策权。',
+      output: selectedCandidate.value ? `${selectedCandidate.value.name}：${selectedCandidate.value.regimen}` : '暂无可展示推荐。'
+    }
+  ]
 })
 const patientInitial = computed(() => store.payload?.patient.displayName.slice(0, 1) || '患')
 const sexLabel = computed(() => {
@@ -741,6 +991,15 @@ async function load() {
   decisionMode.value = null
   await router.replace(`/workbench/${encounterId.value}`)
   await store.load(encounterId.value)
+}
+
+async function loadSimulatedPatient() {
+  await store.loadWorklist()
+  const list = store.worklist
+  if (!list.length) return
+  const index = list.findIndex(item => item.encounterId === encounterId.value)
+  encounterId.value = list[(index + 1 + list.length) % list.length].encounterId
+  await load()
 }
 
 async function submit(action: 'adopt' | 'modify' | 'reject') {

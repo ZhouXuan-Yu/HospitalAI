@@ -41,7 +41,7 @@ async function completeReview() {
   if (!resolution.value || !resolutionNote.value || !selected.value) return
   resolving.value = true
   try {
-    await resolvePharmacistReview(selected.value.id, resolutionNote.value)
+    await resolvePharmacistReview(selected.value.id, resolution.value)
     resolveMessage.value = `复核 ${selected.value.id} 已提交，药师复核完成并记录审计。`
     resolution.value = ''
     resolutionNote.value = ''

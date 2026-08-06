@@ -64,7 +64,7 @@
 ## Acceptance Criteria
 
 - [x] `coreApi.ts` 新增 4 个 API 封装,与后端响应结构对齐,遵循现有错误处理模式。
-- [ ] 后端 pharmacist/collaboration 查询补 join,DTO 返回 patientName/sex/age/department/drugNames 等展示字段(后端环境就绪后单独任务)。
+- [~] 后端 pharmacist/collaboration 查询补 join:DTO/Repository 已加展示字段(含本轮补的 reviewedRoles),但本机无 Java/Maven,编译与测试待后端环境验证。
 - [x] `PharmacistReviews.vue` 在集成模式显示真实队列,完成复核调用真实 resolve 端点并产生审计。
 - [x] `KnowledgeReviews.vue` 在集成模式显示真实知识提交,批准/退回调用真实 review 端点。
 - [x] 角色头正确:`pharmacist` 操作携带 `X-HospitalAI-Role: pharmacist`(后端 resolve 端点已加 requireAny 校验)。
@@ -73,6 +73,14 @@
 - [ ] 后端编译与现有测试通过(含 join 后新字段不破坏原断言)——需 Java/Maven 环境。
 - [x] Vitest 测试覆盖新增封装(新增 coreApiWrappers.test.ts,6 个测试)。
 - [x] Playwright 1366 与 1920 两视口通过(preview 模式 12/12)。
+
+## Review 修复记录(trellis-check)
+
+- [x] CRITICAL: KnowledgeReviews 集成模式"退回修改"被提交为 approve → 改为 return/reject 一律传 reject。
+- [x] CRITICAL: 集成模式双角色纪律失效 → 后端 `KnowledgeSubmissionSummary` 加 `reviewedRoles`,前端派生 `selectedApprovals`。
+- [x] WARNING: PharmacistReviews 把说明文本当 resolution 提交 → 改为提交结构化 `resolution.value`。
+- [~] WARNING: 队列 tab/筛选失效(只请求 pending、无过滤)→ 待后续任务。
+- [~] WARNING: 集成模式 API 失败静默降级无"演示数据"标识 → 待后续任务。
 
 ## Files
 

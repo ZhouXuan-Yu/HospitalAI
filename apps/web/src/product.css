@@ -376,7 +376,10 @@
   .shell-topbar { grid-template-columns: minmax(180px, 1fr) minmax(260px, 420px) minmax(210px, 1fr); gap: 12px; }
   .product-page { padding: 15px; }
   .summary-item { padding: 10px; }
-  .app-main .workspace-grid { grid-template-columns: minmax(330px, 34%) minmax(620px, 66%); }
+  .app-main .workspace-grid { grid-template-columns: minmax(230px, 20%) minmax(660px, 60%) minmax(230px, 20%); }
+  .app-main .workspace-grid.left-collapsed { grid-template-columns: 54px minmax(660px, 1fr) minmax(230px, 20%); }
+  .app-main .workspace-grid.right-collapsed { grid-template-columns: minmax(230px, 20%) minmax(660px, 1fr) 54px; }
+  .app-main .workspace-grid.left-collapsed.right-collapsed { grid-template-columns: 54px minmax(660px, 1fr) 54px; }
 }
 
 @media (max-width: 1280px) {
