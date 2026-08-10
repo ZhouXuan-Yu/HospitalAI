@@ -68,6 +68,8 @@ const isPreview = () => import.meta.env.VITE_UI_PREVIEW === 'true'
 
 export async function loadWorklist(): Promise<WorklistItem[]> {
   if (isPreview()) return mockFetchWorklist()
+  return realFetchWorklist()
+  /* preview fallback is intentionally unreachable in production */
   try {
     return await realFetchWorklist()
   } catch (error) {
@@ -81,6 +83,8 @@ export async function loadWorkbench(encounterId: string): Promise<WorkbenchPaylo
     const { previewWorkbench } = await import('../data/previewData')
     return previewWorkbench(encounterId)
   }
+  return realFetchWorkbench(encounterId)
+  /* preview fallback is intentionally unreachable in production */
   try {
     return await realFetchWorkbench(encounterId)
   } catch (error) {
@@ -103,6 +107,9 @@ export function loadTimeline(patientId: string): Promise<TimelinePayload> {
 // —— 药师风险复核（后端 /pharmacist/reviews 存在；preview 走 mock 聚合视图） ——
 export async function loadPharmacistReviews(): Promise<PharmacistPayload> {
   if (isPreview()) return mockFetchPharmacistReviews()
+  const reviews = await realFetchPharmacistReviews('pending')
+  return mapPharmacistReviewsToPayload(reviews)
+  /* preview fallback is intentionally unreachable in production */
   try {
     const reviews = await realFetchPharmacistReviews('pending')
     return mapPharmacistReviewsToPayload(reviews)
@@ -155,6 +162,8 @@ export async function resolvePharmacistReview(reviewId: string, resolution: stri
 
 export async function loadCollaborationTasks(status = 'pending'): Promise<CollaborationTaskSummary[]> {
   if (isPreview()) return []
+  return realFetchCollaborationTasks(status)
+  /* no production fallback */
   try {
     return await realFetchCollaborationTasks(status)
   } catch (error) {
@@ -171,6 +180,8 @@ export async function resolveCollaborationTask(taskId: string, resolution: strin
 // —— 知识审核（后端 /knowledge/submissions 存在；preview 走 flowSimulation 演示） ——
 export async function loadKnowledgeSubmissions(status = 'review_pending'): Promise<KnowledgeSubmissionSummary[]> {
   if (isPreview()) return []
+  return realFetchKnowledgeSubmissions(status)
+  /* no production fallback */
   try {
     return await realFetchKnowledgeSubmissions(status)
   } catch (error) {

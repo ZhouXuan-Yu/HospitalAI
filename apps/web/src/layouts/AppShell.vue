@@ -1,74 +1,52 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'nav-collapsed': leftCollapsed }">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <aside class="app-sidebar" aria-label="主导航">
-      <router-link class="shell-brand" to="/doctor/worklist">
+    <header class="shell-topbar">
+      <router-link class="shell-brand" to="/doctor/worklist" aria-label="HospitalAI 首页">
         <span class="shell-brand-mark">H</span>
-        <span><strong>HospitalAI</strong><small>院内药学辅助决策</small></span>
+        <span class="shell-brand-copy"><strong>HospitalAI</strong><small>临床药学决策工作台</small></span>
       </router-link>
-
-      <button class="preview-boundary" type="button" title="导入或切换 JSON 流程场景" @click="flow.importDialogVisible=true"><FlaskConical :size="15" /><span><strong>JSON 流程演示</strong><small>{{ flow.worklist.length || 0 }} 个就诊 · 未连接生产数据</small></span><FileJson2 :size="14"/></button>
-
-      <nav class="shell-nav">
-        <template v-for="group in visibleNavigation" :key="group.key">
-          <button class="nav-group-label" type="button" @click="toggleGroup(group.key)">
-            <span>{{ group.label }}</span><ChevronDown :size="14" :class="{ rotated: collapsedGroups.has(group.key) }" />
-          </button>
-          <div v-show="!collapsedGroups.has(group.key)" class="nav-group-items">
-            <router-link v-for="item in group.items" :key="item.path" :to="item.path">
-              <component :is="item.icon" :size="17" /><span>{{ item.label }}</span>
-              <span v-if="item.badge" class="nav-badge">{{ item.badge==='patients' ? flow.worklist.length : item.badge }}</span>
-            </router-link>
-          </div>
-        </template>
+      <nav class="primary-nav" aria-label="业务模块">
+        <router-link v-for="item in visibleNavigation" :key="item.path" :to="item.path" class="primary-nav-item">
+          <component :is="item.icon" :size="16" /><span>{{ item.label }}</span><b v-if="item.badge">{{ badgeValue(item.badge) }}</b>
+        </router-link>
       </nav>
-
-      <div class="sidebar-footer">
-        <label for="role-view">角色视角</label>
-        <el-select id="role-view" v-model="role" size="small" aria-label="切换角色视角">
-          <el-option label="超级管理员（全视图）" value="super_admin" />
-          <el-option label="临床医生" value="doctor" />
-          <el-option label="临床药师" value="pharmacist" />
-          <el-option label="科研负责人" value="researcher" />
-          <el-option label="系统管理员" value="admin" />
-        </el-select>
-        <p><ShieldCheck :size="13" />角色切换不能绕过医疗硬规则</p>
+      <div class="shell-actions">
+        <el-tooltip content="导入 JSON 验证场景" placement="bottom"><el-button :icon="FileJson2" circle aria-label="导入 JSON 验证场景" @click="flow.importDialogVisible = true" /></el-tooltip>
+        <el-tooltip content="接口与同步状态" placement="bottom"><el-button :icon="Activity" circle aria-label="接口与同步状态" @click="$router.push('/admin/integrations')" /></el-tooltip>
+        <div class="shell-user"><span>周</span><div><strong>周医生</strong><small>{{ roleLabel }}</small></div></div>
       </div>
+    </header>
+
+    <aside class="app-sidebar" :aria-label="`${roleLabel}工作范围`">
+      <div class="sidebar-tools">
+        <button class="rail-toggle" type="button" :aria-label="leftCollapsed ? '展开工作范围' : '收起工作范围'" @click="leftCollapsed = !leftCollapsed">
+          <PanelLeftClose v-if="!leftCollapsed" :size="16" /><PanelLeftOpen v-else :size="16" />
+        </button>
+        <span v-if="!leftCollapsed" class="scope-title">{{ scopeTitle }}</span>
+      </div>
+      <div v-if="!leftCollapsed" class="scope-body">
+        <div class="scope-banner"><ShieldCheck :size="15" /><div><strong>{{ roleLabel }}</strong><span>{{ scopeDescription }}</span></div></div>
+        <label class="scope-label" for="role-view">开发验证角色</label>
+        <el-select id="role-view" v-model="role" size="small" aria-label="切换角色视图">
+          <el-option label="超级管理员（全视图）" value="super_admin" /><el-option label="临床医生" value="doctor" /><el-option label="临床药师" value="pharmacist" /><el-option label="科研负责人" value="researcher" /><el-option label="系统管理员" value="admin" />
+        </el-select>
+        <div class="scope-section"><div class="scope-section-title"><span>当前科室</span><el-tag size="small">呼吸内科</el-tag></div><button class="scope-row selected"><span class="scope-avatar">呼</span><span><strong>呼吸内科</strong><small>CAP 住院队列</small></span><b>{{ flow.worklist.length || 0 }}</b></button></div>
+        <div class="scope-section"><div class="scope-section-title"><span>{{ role === 'pharmacist' ? '待审核医嘱' : '负责患者' }}</span><span class="scope-count">{{ flow.worklist.length || 0 }}</span></div><button v-for="patient in flow.worklist.slice(0, 5)" :key="patient.encounterId" class="scope-row" @click="$router.push(role === 'pharmacist' ? '/pharmacy/reviews' : `/doctor/workbench/${patient.encounterId}`)"><span class="scope-avatar muted">{{ patient.displayName.slice(-1) }}</span><span><strong>{{ patient.displayName }}</strong><small>{{ patient.diagnosis }}</small></span><ChevronRight :size="14" /></button></div>
+        <div class="scope-footnote"><FileJson2 :size="13" /> <span>{{ flow.currentScenarioLabel }} · 仅用于验证</span></div>
+      </div>
+      <div v-else class="collapsed-rail"><Building2 :size="17" /><span>工作范围</span><span class="rail-count">{{ flow.worklist.length || 0 }}</span></div>
     </aside>
 
-    <section class="shell-content">
-      <header class="shell-topbar">
-        <div class="route-context">
-          <span>{{ currentGroup }}</span><ChevronRight :size="13" /><strong>{{ currentTitle }}</strong>
-        </div>
-        <div class="shell-search">
-          <Search :size="16" /><input aria-label="全局搜索" placeholder="搜索患者、任务、规则或证据" />
-          <kbd>Ctrl K</kbd>
-        </div>
-        <div class="shell-actions">
-          <el-tooltip content="系统内待办" placement="bottom"><el-button :icon="Bell" circle aria-label="系统内待办" /><span class="notification-dot"></span></el-tooltip>
-          <el-tooltip content="接口状态" placement="bottom"><el-button :icon="Activity" circle aria-label="接口状态" @click="$router.push('/admin/integrations')" /></el-tooltip>
-          <el-tooltip :content="flow.currentScenarioLabel" placement="bottom"><el-button :icon="FileJson2" circle aria-label="导入JSON场景" @click="flow.importDialogVisible=true"/></el-tooltip>
-          <div class="shell-user"><span>周</span><div><strong>周医生</strong><small>{{ roleLabel }}</small></div></div>
-        </div>
-      </header>
-
-      <main id="main-content" class="app-main" :class="{ immersive: route.meta.immersive }">
-        <router-view />
-      </main>
-    </section>
-    <ScenarioImportDialog/>
+    <main id="main-content" class="app-main" :class="{ immersive: route.meta.immersive }"><router-view /></main>
+    <ScenarioImportDialog />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  Activity, Bell, BookOpenCheck, Braces, ChevronDown, ChevronRight, ClipboardCheck, FileJson2,
-  FlaskConical, GitBranch, History, Library, ListTodo, Network, Search, ShieldCheck,
-  Stethoscope, UsersRound
-} from 'lucide-vue-next'
+import { Activity, BookOpenCheck, Building2, ClipboardCheck, ChevronRight, FileJson2, FlaskConical, GitBranch, Library, PanelLeftClose, PanelLeftOpen, ShieldCheck, Stethoscope, UsersRound } from 'lucide-vue-next'
 import ScenarioImportDialog from '../components/ScenarioImportDialog.vue'
 import { useFlowSimulationStore } from '../stores/flowSimulation'
 
@@ -76,43 +54,21 @@ type Role = 'super_admin' | 'doctor' | 'pharmacist' | 'researcher' | 'admin'
 const route = useRoute()
 const flow = useFlowSimulationStore()
 const role = ref<Role>('super_admin')
-const collapsedGroups = ref(new Set<string>())
-
+const leftCollapsed = ref(false)
 const navigation = [
-  { key: 'doctor', label: '医生工作区', roles: ['super_admin', 'doctor'], items: [
-    { label: '患者工作列表', path: '/doctor/worklist', icon: ListTodo, badge: 'patients' },
-    { label: '处方辅助决策', path: '/doctor/workbench/E001', icon: Stethoscope },
-    { label: '患者用药全景', path: '/doctor/patients/P001', icon: UsersRound },
-    { label: '长期用药追踪', path: '/doctor/timeline/P001', icon: History }
-  ]},
-  { key: 'pharmacy', label: '药师工作区', roles: ['super_admin', 'pharmacist'], items: [
-    { label: '风险复核队列', path: '/pharmacy/reviews', icon: ClipboardCheck, badge: '8' }
-  ]},
-  { key: 'governance', label: '规则与证据', roles: ['super_admin', 'pharmacist'], items: [
-    { label: '临床规则管理', path: '/governance/rules', icon: GitBranch },
-    { label: '证据资料中心', path: '/governance/evidence', icon: Library }
-  ]},
-  { key: 'research', label: '科研与知识', roles: ['super_admin', 'researcher', 'pharmacist'], items: [
-    { label: '科研工作台', path: '/research/workbench', icon: FlaskConical },
-    { label: '知识审核中心', path: '/knowledge/reviews', icon: BookOpenCheck, badge: '2' }
-  ]},
-  { key: 'admin', label: '系统管理', roles: ['super_admin', 'admin'], items: [
-    { label: '接口与同步', path: '/admin/integrations', icon: Network },
-    { label: '审计日志', path: '/admin/audit', icon: ShieldCheck },
-    { label: 'API 接口文档', path: '/developer/api-docs', icon: Braces }
-  ]}
+  { label: '处方推荐', path: '/doctor/worklist', icon: Stethoscope, roles: ['super_admin', 'doctor'], badge: 'patients' },
+  { label: '处方审核', path: '/pharmacy/reviews', icon: ClipboardCheck, roles: ['super_admin', 'pharmacist'], badge: 'reviews' },
+  { label: '患者全景', path: '/doctor/patients/P001', icon: UsersRound, roles: ['super_admin', 'doctor'] },
+  { label: '科研与知识', path: '/research/workbench', icon: FlaskConical, roles: ['super_admin', 'researcher', 'pharmacist'] },
+  { label: '知识审核', path: '/knowledge/reviews', icon: BookOpenCheck, roles: ['super_admin', 'pharmacist'], badge: '2' }
+  ,{ label: '规则管理', path: '/governance/rules', icon: GitBranch, roles: ['super_admin', 'pharmacist'] }
+  ,{ label: '证据中心', path: '/governance/evidence', icon: Library, roles: ['super_admin', 'pharmacist'] }
+  ,{ label: '审计日志', path: '/admin/audit', icon: ShieldCheck, roles: ['super_admin', 'admin'] }
 ]
-
-const visibleNavigation = computed(() => navigation.filter(group => group.roles.includes(role.value)))
-const currentTitle = computed(() => String(route.meta.title || '工作台'))
-const currentGroup = computed(() => String(route.meta.group || 'HospitalAI'))
-const roleLabel = computed(() => ({ super_admin: '超级管理员视角', doctor: '临床医生', pharmacist: '临床药师', researcher: '科研负责人', admin: '系统管理员' }[role.value]))
-
-function toggleGroup(key: string) {
-  const next = new Set(collapsedGroups.value)
-  next.has(key) ? next.delete(key) : next.add(key)
-  collapsedGroups.value = next
-}
-
+const visibleNavigation = computed(() => navigation.filter(item => item.roles.includes(role.value)))
+const roleLabel = computed(() => ({ super_admin: '超级管理员视图', doctor: '临床医生', pharmacist: '临床药师', researcher: '科研负责人', admin: '系统管理员' }[role.value]))
+const scopeTitle = computed(() => role.value === 'pharmacist' ? '药师审核范围' : role.value === 'researcher' ? '科研数据范围' : '临床工作范围')
+const scopeDescription = computed(() => role.value === 'pharmacist' ? '仅显示负责科室待审核医嘱' : role.value === 'researcher' ? '仅显示已脱敏研究数据' : '仅显示当前负责科室患者')
+const badgeValue = (badge: string) => badge === 'patients' ? flow.worklist.length : badge === 'reviews' ? '待办' : badge
 onMounted(() => flow.ensureScenario())
 </script>
