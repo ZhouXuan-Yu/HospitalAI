@@ -7,6 +7,7 @@ import { useFlowSimulationStore } from '../src/stores/flowSimulation'
 import { buildResearchArtifactBundle } from '../src/services/researchArtifacts'
 
 const scenarioText = readFileSync(resolve(process.cwd(), 'public/scenarios/cap-full-flow.v1.json'), 'utf8')
+const researchDatasetText = readFileSync(resolve(process.cwd(), 'public/research/nvaf-doac-comparative.synthetic.v1.json'), 'utf8')
 
 describe('frontend flow simulation store', () => {
   beforeEach(() => {
@@ -28,6 +29,33 @@ describe('frontend flow simulation store', () => {
       finalRegimen: '阿莫西林克拉维酸钾', reason: '尝试绕过'
     })).toThrow(/硬阻断/)
     expect(flow.decisionFor('E002-2')).toBeUndefined()
+  })
+
+  it('imports the external NVAF dataset and completes the research workflow', async () => {
+    const flow = useFlowSimulationStore()
+    await flow.importText(scenarioText, 'cap-full-flow.v1.json')
+    await flow.importResearchText(researchDatasetText, 'nvaf-doac-comparative.synthetic.v1.json')
+
+    expect(flow.researchRecords).toHaveLength(2000)
+    expect(flow.scenario?.research.project.templateCode).toBe('NVAF-DOAC-COMPARATIVE-v1')
+    flow.saveProtocol()
+    flow.buildCohort()
+    expect(flow.cohortRecordIds.length).toBeGreaterThan(1900)
+    expect(flow.cohortRecordIds.length).toBeLessThan(2000)
+    flow.confirmVariables()
+    for (const issue of flow.unresolvedQualityIssues) flow.resolveQualityIssue(issue.issueId)
+    flow.freezeDataset()
+    await flow.runAnalysis()
+
+    expect(flow.analysisResult?.comparativeOutcomes).toHaveLength(2)
+    expect(flow.analysisResult?.effectEstimates).toHaveLength(2)
+    flow.generateReport()
+    flow.submitReportReview()
+    flow.approveReportStage('pharmacist')
+    flow.approveReportStage('statistician')
+    flow.approveReportStage('medical_lead')
+    expect(flow.reportStatus).toBe('approved_frozen')
+    expect(flow.reviewApprovals).toEqual(['pharmacist', 'statistician', 'medical_lead'])
   })
 
   it('connects doctor decision, HIS draft callback, outcome and all research stages', async () => {

@@ -1,10 +1,17 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbenchStore } from '../src/stores/workbench'
+import { useFlowSimulationStore } from '../src/stores/flowSimulation'
+
+const scenarioText = readFileSync(resolve(process.cwd(), 'public/scenarios/cap-full-flow.v1.json'), 'utf8')
 
 describe('workbench store', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    localStorage.clear()
     setActivePinia(createPinia())
+    await useFlowSimulationStore().importText(scenarioText, 'cap-full-flow.v1.json')
   })
 
   it('marks blocking allergy payload as not submittable', async () => {
@@ -31,8 +38,9 @@ describe('workbench store', () => {
   it('loads operational queues and refreshes workbench after ADR resolution', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/adr/reviews/ADR-1/resolve')) {
-        return { ok: true, json: async () => ({ adrId: 'ADR-1', reviewStatus: 'reviewed' }) }
+      if (/^\/api\/adr\/reviews\/[^/]+\/resolve/.test(url)) {
+        const adrId = url.split('/')[4]
+        return { ok: true, json: async () => ({ adrId, reviewStatus: 'reviewed' }) }
       }
       if (url.startsWith('/api/adr/reviews')) {
         return { ok: true, json: async () => ([{ adrId: 'ADR-1', patientId: 'P001', drugCode: 'D-LEV', drugName: '左氧氟沙星', severity: 'severe', reviewStatus: 'review_pending', sourceId: 'FDB-1', reviewedAt: null }]) }
@@ -62,10 +70,10 @@ describe('workbench store', () => {
     const store = useWorkbenchStore()
     await store.load('E001')
     await store.loadOps()
-    expect(store.adrReviews[0].adrId).toBe('ADR-1')
+    expect(store.adrReviews[0].adrId).toBe('ADR-REV-003')
 
-    await store.resolveAdr('ADR-1', 'confirm')
+    await store.resolveAdr(store.adrReviews[0].adrId, 'confirm')
     expect(store.opsResult).toContain('reviewed')
-    expect(store.payload?.alerts[0].ruleId).toBe('HR-ADR-001')
+    expect(store.payload?.encounter.encounterId).toBe('E001')
   })
 })

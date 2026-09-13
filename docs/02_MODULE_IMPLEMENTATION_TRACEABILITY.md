@@ -13,7 +13,7 @@
 | R-006 | 证据中心 | 推荐理由可追溯 | 文件、解析、审核、发布、撤回 | 部分完成：EvidenceDocument/DocumentBlock/EvidenceChunk 表、上传/解析/发布/撤回 API、published-only 检索和 FastAPI Core 证据读取已通；真实文件解析与审核 UI 待补 | `evidence` 模块、AI 解析/检索 | 未审核不得参与推荐、证据定位 |
 | R-007 | 推荐流水线 | 形成可比较方案 | 固定流水线、候选、排除、解释 | 纵向切片已通 | `recommendation` 模块 | AI 失败降级、证据不足不补写 |
 | R-008 | 医生审核 | 保留最终决策权 | 采纳、修改、驳回、差异、理由 | 前端验收闭环完成：JSON 驱动患者事实、候选、采纳/修改/驳回、差异、硬阻断和审计回执；后端已支持决策落库与版本过期，更细字段级 diff 待补 | `decision` 模块、Web 矩阵、`flowSimulation` | 修改前后差异、驳回无草稿、硬阻断不可绕过 |
-| R-009 | 药师复核 | 高风险闭环处理 | 审方队列、沟通、处理结果 | 部分完成：强提醒自动创建药师复核任务，跨科室协同任务独立建模，支持查询和解决；医生工作台右栏可查看并处理 ADR 待办；独立药师工作台和权限细化待补 | `pharmacist-review`、`collaboration-task`、Web 右栏待办 | 阻断、强提醒、跨科室协同 |
+| R-009 | 药师复核 | 高风险闭环处理 | 审方队列、沟通、处理结果 | 前端工作台闭环完成：独立审核队列、风险摘要、事实对照、证据定位、沟通记录、处理结论和空状态均已落地；后端权限细化与批量审核能力仍按接口契约补齐 | `pharmacist-review`、`collaboration-task`、`PharmacistReviews.vue` | 阻断、强提醒、跨科室协同 |
 | R-010 | HIS 草稿回写 | 不写正式医嘱但可落地 | 幂等、失败、重试、最终回调 | 前端已贯通草稿创建、可靠任务、HIS 草稿回读、回调确认和结局录入；后端幂等、重试和 callback API 已通，真实 adapter Worker 待补 | `prescription-draft`、HIS adapter、DoctorWorkbench | 重复提交、接口失败、状态回调、正式医嘱边界 |
 | R-011 | 长期追踪 | 历史风险继承 | 用药事件链、反馈、出院、再入院 | 部分完成：`medication_timeline_event`、`medication_feedback`、`discharge_outcome` 表和 API 已通；严重反馈信号可生成 ADR 审核，确认后进入后续推荐强提醒，前端可处理 ADR 待办；再入院自动摘要和权限待补 | `medication-timeline`、`feedback`、`outcome`、`adr-review` API、Web 右栏待办 | 二次入院继承、换药原因、出院结局、严重 ADR 升级 |
 | R-012 | 科研数据 | 形成论文可审查的数据支撑 | 队列、变量、质量、冻结、统计、去标识 ZIP、专业 DOCX、复现清单 | 前端八阶段闭环完成并可生成真实 ZIP/DOCX；ZIP 含分析数据、变量字典、纳排日志、质量记录、统计结果、审计、报告和逐文件 SHA-256；后端统计与制品 API 已通，正式制品签名、下载授权和长期留存待补 | `research` 模块、ResearchWorkbench、`researchArtifacts` | 缺失统计、质量门禁、去标识、ZIP 完整性、报告血缘 |

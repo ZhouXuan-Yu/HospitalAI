@@ -6,17 +6,19 @@
 |---|---:|---|
 | Vue 类型检查与生产构建 | 通过 | `apps/web`: `npm run build` |
 | Pinia/Core API/JSON 流单测 | 11/11 通过 | `apps/web`: `npm test` |
-| 既有 Playwright 流程 | 10/14 通过 | `apps/web`: `npm run e2e` |
-| 既有 Playwright 失败 | 4 | 2 个 API 文档旧编码断言；2 个科研知识审核旧流程断言，涉及现有脏改动 `KnowledgeReviews.vue`，需独立复核 |
+| 既有 Playwright 流程（历史基线） | 10/14 通过 | 这是前一轮 `apps/web`: `npm run e2e` 结果，不作为本轮 UI 绿灯结论 |
+| 既有 Playwright 失败（历史基线） | 4 | 2 个 API 文档旧编码断言；2 个科研知识审核旧流程断言；本轮未重新运行 E2E，避免把测试套件当作 UI 开发主线 |
 | 新增药师模块路由 | 已实现 | `/pharmacy/retrospective`、`/pharmacy/records`、`/pharmacy/education` |
 | 接口契约 | 已补充 | `docs/10_FRONTEND_BACKEND_API_CONTRACT.md` |
 | 需求追踪 | 已补充 | `docs/11_FRONTEND_REDESIGN_TRACEABILITY.md` |
+| 预览模式页面视觉验收 | 通过 | 同一前端在 1366/1920 下完成处方点评、用药教育截图：`apps/web/docs/validation/ui-pharmacy-retrospective-1366-final.png`、`ui-pharmacy-retrospective-1920-final.png`、`ui-pharmacy-education-1366-final.png`、`ui-pharmacy-education-1920-final.png` |
+| 正式模式数据边界 | 通过构建级检查 | 非预览模式隐藏 JSON 导入、角色切换、固定用户与固定科室/患者范围；正式范围显示为身份服务待返回状态 |
 
 ## 当前阻塞与整改边界
 
 1. 本轮没有把 `KnowledgeReviews.vue` 的用户未提交改动覆盖掉，因此科研知识审核的 2 个旧 E2E 失败不能直接归因于本轮页面壳改造；下一轮应先确认该文件的目标行为，再补回稳定断言。
 2. 专用药历和用药教育的生产 API 仍需 Core API 按接口契约实现；前端已提供验证态流程，但不得在生产模式用内置场景冒充真实成功。
-3. 由于当前工作区已有独立运行服务占用旧端口，本轮构建和单测已实际执行；新增路由需要在干净的本地服务进程上重新执行两视口截图和 E2E。
+3. 本轮未重新运行 Playwright E2E；后续若进入发布门禁，应在干净的本地服务进程上单独复核历史失败项。该项不影响本轮前端 UI 视觉与生产边界改造的构建结果。
 
 ## 验收结论
 

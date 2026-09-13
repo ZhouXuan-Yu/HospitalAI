@@ -178,6 +178,74 @@ export interface ResearchArtifactContent {
   content: string
 }
 
+export interface ResearchCohortSummary {
+  cohortId: string
+  name: string
+  diseaseScope: string
+  inclusionCriteria: string
+  exclusionCriteria: string
+  status: string
+  createdAt: string
+  frozenAt: string | null
+}
+
+export interface ResearchVariableSummary {
+  variableId: string
+  cohortId: string
+  name: string
+  definition: string
+  sourceTable: string
+  missingPolicy: string
+  version: string
+}
+
+export interface ResearchQualityCheckSummary {
+  checkId: string
+  cohortId: string
+  status: string
+  totalSubjects: number
+  missingSummary: string
+  issueSummary: string
+  checkedAt: string
+}
+
+export interface ResearchAnalysisRunSummary {
+  runId: string
+  cohortId: string
+  status: string
+  scriptVersion: string
+  statisticPlan: string
+  inputHash: string
+  outputHash: string
+  resultSummary: string
+  artifactUri: string
+  startedAt: string
+  completedAt: string | null
+}
+
+export interface ResearchReportDraftSummary {
+  reportId: string
+  cohortId: string
+  status: string
+  title: string
+  markdownBody: string
+  generatedAt: string
+  reviewedAt: string | null
+  reviewNote: string | null
+}
+
+export interface ResearchExportSummary {
+  exportId: string
+  cohortId: string
+  status: string
+  rowCount: number
+  artifactUri: string
+  dataHash: string
+  requestedBy: string
+  purpose: string
+  createdAt: string
+}
+
 const roleHeaders = (role: string) => ({ 'X-HospitalAI-Role': role })
 const jsonRoleHeaders = (role: string) => ({ 'Content-Type': 'application/json', 'X-HospitalAI-Role': role })
 
@@ -277,6 +345,54 @@ export async function fetchAnalysisTasks(cohortId: string, status = ''): Promise
 export async function fetchResearchArtifact(uri: string): Promise<ResearchArtifactContent> {
   const response = await fetch(`/api/research/artifacts?uri=${encodeURIComponent(uri)}`, { headers: roleHeaders('researcher') })
   if (!response.ok) throw new Error(`科研产物读取失败：${response.status}`)
+  return response.json()
+}
+
+export async function createResearchCohort(body: { cohortId: string; name: string; diseaseScope: string; inclusionCriteria: string; exclusionCriteria: string }): Promise<ResearchCohortSummary> {
+  const response = await fetch('/api/research/cohorts', { method: 'POST', headers: jsonRoleHeaders('researcher'), body: JSON.stringify(body) })
+  if (!response.ok) throw new Error(`研究队列保存失败：${response.status}`)
+  return response.json()
+}
+
+export async function saveResearchVariable(cohortId: string, body: { variableId: string; name: string; definition: string; sourceTable: string; missingPolicy: string; version: string }): Promise<ResearchVariableSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/variables`, { method: 'POST', headers: jsonRoleHeaders('researcher'), body: JSON.stringify(body) })
+  if (!response.ok) throw new Error(`研究变量保存失败：${response.status}`)
+  return response.json()
+}
+
+export async function runResearchQualityCheck(cohortId: string): Promise<ResearchQualityCheckSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/quality-check`, { method: 'POST', headers: roleHeaders('researcher') })
+  if (!response.ok) throw new Error(`数据质量检查失败：${response.status}`)
+  return response.json()
+}
+
+export async function freezeResearchCohort(cohortId: string): Promise<ResearchCohortSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/freeze`, { method: 'POST', headers: roleHeaders('researcher') })
+  if (!response.ok) throw new Error(`研究数据集冻结失败：${response.status}`)
+  return response.json()
+}
+
+export async function runResearchAnalysis(cohortId: string, body: { scriptVersion: string; statisticPlan: string; runner: string }): Promise<ResearchAnalysisRunSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/analysis-runs`, { method: 'POST', headers: jsonRoleHeaders('researcher'), body: JSON.stringify(body) })
+  if (!response.ok) throw new Error(`科研统计运行失败：${response.status}`)
+  return response.json()
+}
+
+export async function createResearchReport(cohortId: string): Promise<ResearchReportDraftSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/reports`, { method: 'POST', headers: roleHeaders('researcher') })
+  if (!response.ok) throw new Error(`研究报告生成失败：${response.status}`)
+  return response.json()
+}
+
+export async function reviewResearchReport(reportId: string, reviewNote: string, role: 'pharmacist' | 'statistician' | 'medical_lead'): Promise<ResearchReportDraftSummary> {
+  const response = await fetch(`/api/research/reports/${reportId}/review`, { method: 'POST', headers: jsonRoleHeaders(role), body: JSON.stringify({ reviewNote }) })
+  if (!response.ok) throw new Error(`研究报告审核失败：${response.status}`)
+  return response.json()
+}
+
+export async function createResearchExport(cohortId: string, body: { requestedBy: string; purpose: string }): Promise<ResearchExportSummary> {
+  const response = await fetch(`/api/research/cohorts/${cohortId}/exports`, { method: 'POST', headers: jsonRoleHeaders('researcher'), body: JSON.stringify(body) })
+  if (!response.ok) throw new Error(`科研成果包生成失败：${response.status}`)
   return response.json()
 }
 

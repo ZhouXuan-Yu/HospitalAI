@@ -191,6 +191,18 @@
 5. 验证：`npm run build`（vue-tsc + vite build）通过；Vitest 5/5 通过；Playwright 12/12 通过；9 个迁移页面逐页验证数据渲染正确；新增截图在 `apps/web/docs/validation/{overview,timeline,pharmacist,rules,evidence,integration,audit}-1920.png`。
 6. 生产接入映射：mockApi 与 coreApi 同构，后续 `VITE_UI_PREVIEW=false` 时页面切到 `coreApi.ts` 真实请求即可。
 
+## 2026-08-10 科研工作台前端纵向链路
+
+1. 科研工作台已重塑为五阶段：选题与方案、数据提取、算法分析、报告生成、数据导出；主用户为医院药师。
+2. 首个固定模板为 65 岁及以上非瓣膜性房颤患者阿哌沙班与利伐沙班比较，主要结局为卒中/系统性栓塞与大出血。
+3. 新增独立导入契约 `hospitalai.research-dataset.v1` 和 Ajv 校验；科研数据可单独导入，不再要求替换完整处方场景。
+4. `fixtures/research/generate_nvaf_doac_dataset.py` 使用固定随机种子生成 2,000 例合成 JSON，同时发布到前端 public 目录；Vue 组件不内嵌研究记录。
+5. 演示流程实际纳入 1,960 条记录，完成质量问题处理、数据集冻结与哈希、两组结局展示、报告草稿和药师→统计师→医学负责人三级审核。
+6. 前端 `coreApi.ts` 已增加队列、变量、质控、冻结、分析、报告、审核和导出强类型函数；六页接口说明位于 `docs/api/research/`。
+7. 实际导出 ZIP 含 18 个条目并包含 CSV、字典、纳排、质量、统计、复现、审计、DOCX 与 manifest；详细哈希和命令见 `docs/validation/research-workbench-frontend-acceptance-2026-08-10.md`。
+8. 验证：前端 build 通过，Vitest 12/12；科研 Playwright 在 1366 与 1920 为 2/2。全量 E2E 另有 12 个既有处方/导航选择器过期失败，需后续单独更新。
+9. 当前仍是前端演示适配器：服务端数据上传/暂存/发布、固定 Python IPTW/Cox、数据库持久化、三级审核后端状态和服务端签名成果包尚未完成，不得称为生产科研平台。
+
 ## 2026-08-05 统一数据访问层交付状态
 
 1. 新增统一数据访问层 `apps/web/src/services/dataAccess.ts`，作为页面唯一数据入口，按 `VITE_UI_PREVIEW` 自动切换：true → mockApi（JSON 假数据）；false → 真实 coreApi，真实端点失败时降级到 mock 并 `console.warn`。
@@ -211,5 +223,4 @@
 8. 已知限制：本机无 Maven 可执行文件，后端 JUnit 集成测试需在有 Maven 的环境跑一次确认（`mvn -pl services/core-api test`）。
 
 6. 下一步：后端有真实环境后可逐个打开 dataAccess 中标注"待补契约"的函数对接真实端点。
-
 

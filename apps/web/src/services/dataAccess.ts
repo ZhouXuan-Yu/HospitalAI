@@ -35,7 +35,8 @@ import {
   type AuditEventItem,
   type PatientContextPayload,
   type TimelinePayload,
-  type PharmacistPayload
+  type PharmacistPayload,
+  type PharmacistReviewItem
 } from './mockApi'
 
 export type {
@@ -54,28 +55,20 @@ export type {
 export type { WorklistItem, WorkbenchPayload } from './coreApi'
 export type { PharmacistReviewTaskSummary, CollaborationTaskSummary, KnowledgeSubmissionSummary, AdverseDrugReactionSummary } from './coreApi'
 
-/**
- * 统一数据访问层。
- *
- * - `VITE_UI_PREVIEW==='true'`：全部走 mock（本地 JSON 假数据），不发起真实请求。
- * - 其余模式：优先走真实 Core API；无真实端点或调用失败时降级到 mock，
- *   并把消息交给调用方（store.error / el-alert）展示，界面边界保持清晰。
- *
- * 页面组件只依赖本层，不直接 import coreApi 或 mockApi。
- */
-
 const isPreview = () => import.meta.env.VITE_UI_PREVIEW === 'true'
 
+async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(path)
+  if (!response.ok) throw new Error(`接口请求失败 ${response.status}: ${path}`)
+  return response.json() as Promise<T>
+}
+
+function unavailable(name: string): never {
+  throw new Error(`生产接口未实现：${name}。请先完成 Core API 契约，不会使用本地假数据替代。`)
+}
+
 export async function loadWorklist(): Promise<WorklistItem[]> {
-  if (isPreview()) return mockFetchWorklist()
-  return realFetchWorklist()
-  /* preview fallback is intentionally unreachable in production */
-  try {
-    return await realFetchWorklist()
-  } catch (error) {
-    console.warn('[dataAccess] worklist 降级到 mock：', error)
-    return mockFetchWorklist()
-  }
+  return isPreview() ? mockFetchWorklist() : realFetchWorklist()
 }
 
 export async function loadWorkbench(encounterId: string): Promise<WorkbenchPayload> {
@@ -84,39 +77,21 @@ export async function loadWorkbench(encounterId: string): Promise<WorkbenchPaylo
     return previewWorkbench(encounterId)
   }
   return realFetchWorkbench(encounterId)
-  /* preview fallback is intentionally unreachable in production */
-  try {
-    return await realFetchWorkbench(encounterId)
-  } catch (error) {
-    console.warn('[dataAccess] workbench 降级到 mock：', error)
-    const { previewWorkbench } = await import('../data/previewData')
-    return previewWorkbench(encounterId)
-  }
 }
 
-// —— 患者全景（后端无对应 GET 端点，直接 mock） ——
 export function loadPatientContext(patientId: string): Promise<PatientContextPayload> {
-  return mockFetchPatientContext(patientId)
+  if (isPreview()) return mockFetchPatientContext(patientId)
+  return getJson<PatientContextPayload>(`/api/patients/${encodeURIComponent(patientId)}/context`)
 }
 
-// —— 长期用药追踪（后端 /timeline 是事件列表，非页面聚合视图，保留 mock 降级） ——
 export function loadTimeline(patientId: string): Promise<TimelinePayload> {
-  return mockFetchTimeline(patientId)
+  if (isPreview()) return mockFetchTimeline(patientId)
+  return getJson<TimelinePayload>(`/api/patients/${encodeURIComponent(patientId)}/timeline`)
 }
 
-// —— 药师风险复核（后端 /pharmacist/reviews 存在；preview 走 mock 聚合视图） ——
 export async function loadPharmacistReviews(): Promise<PharmacistPayload> {
   if (isPreview()) return mockFetchPharmacistReviews()
-  const reviews = await realFetchPharmacistReviews('pending')
-  return mapPharmacistReviewsToPayload(reviews)
-  /* preview fallback is intentionally unreachable in production */
-  try {
-    const reviews = await realFetchPharmacistReviews('pending')
-    return mapPharmacistReviewsToPayload(reviews)
-  } catch (error) {
-    console.warn('[dataAccess] pharmacist reviews 降级到 mock：', error)
-    return mockFetchPharmacistReviews()
-  }
+  return mapPharmacistReviewsToPayload(await realFetchPharmacistReviews('pending'))
 }
 
 function mapPharmacistReviewsToPayload(reviews: PharmacistReviewTaskSummary[]): PharmacistPayload {
@@ -138,7 +113,8 @@ function mapPharmacistReviewsToPayload(reviews: PharmacistReviewTaskSummary[]): 
       wait: '待处理',
       kind: '处方复核',
       createdAt: review.createdAt,
-      ruleVersion: review.reason
+      ruleVersion: review.reason,
+      reason: review.reason
     })),
     communications: []
   }
@@ -149,6 +125,7 @@ function priorityLabel(priority: string): string {
   if (priority === 'strong' || priority === 'warning') return '强提醒'
   return '一般'
 }
+
 function priorityClass(priority: string): string {
   if (priority === 'high' || priority === 'urgent' || priority === 'severe') return 'danger'
   if (priority === 'strong' || priority === 'warning') return 'warning'
@@ -163,13 +140,6 @@ export async function resolvePharmacistReview(reviewId: string, resolution: stri
 export async function loadCollaborationTasks(status = 'pending'): Promise<CollaborationTaskSummary[]> {
   if (isPreview()) return []
   return realFetchCollaborationTasks(status)
-  /* no production fallback */
-  try {
-    return await realFetchCollaborationTasks(status)
-  } catch (error) {
-    console.warn('[dataAccess] collaboration tasks 降级为空：', error)
-    return []
-  }
 }
 
 export async function resolveCollaborationTask(taskId: string, resolution: string): Promise<Record<string, unknown>> {
@@ -177,17 +147,9 @@ export async function resolveCollaborationTask(taskId: string, resolution: strin
   return realResolveCollaborationTask(taskId, resolution)
 }
 
-// —— 知识审核（后端 /knowledge/submissions 存在；preview 走 flowSimulation 演示） ——
 export async function loadKnowledgeSubmissions(status = 'review_pending'): Promise<KnowledgeSubmissionSummary[]> {
   if (isPreview()) return []
   return realFetchKnowledgeSubmissions(status)
-  /* no production fallback */
-  try {
-    return await realFetchKnowledgeSubmissions(status)
-  } catch (error) {
-    console.warn('[dataAccess] knowledge submissions 降级为空：', error)
-    return []
-  }
 }
 
 export async function submitKnowledgeReview(submissionId: string, reviewerRole: string, decision: 'approve' | 'reject', note: string): Promise<Record<string, unknown>> {
@@ -195,47 +157,24 @@ export async function submitKnowledgeReview(submissionId: string, reviewerRole: 
   return realReviewKnowledgeSubmission(submissionId, reviewerRole, decision, note)
 }
 
-// —— 规则治理 ——
 export async function loadRules(): Promise<RuleItem[]> {
   if (isPreview()) return mockFetchRules()
-  try {
-    return await realFetchRulesWithMap()
-  } catch (error) {
-    console.warn('[dataAccess] rules 降级到 mock：', error)
-    return mockFetchRules()
-  }
-}
-
-async function realFetchRulesWithMap(): Promise<RuleItem[]> {
-  const response = await fetch('/api/rules')
-  if (!response.ok) throw new Error(`规则加载失败：${response.status}`)
-  const payload = await response.json()
-  // 后端返回的规则结构可能含嵌套字段，映射为页面所需扁平结构
-  return mapRulePayload(payload)
+  return mapRulePayload(await getJson<unknown>('/api/rules'))
 }
 
 function mapRulePayload(payload: unknown): RuleItem[] {
-  const raw = (payload as { rules?: unknown[] }).rules ?? (payload as unknown[])
-  if (!Array.isArray(raw)) return []
+  const value = payload as { rules?: unknown[] } | unknown[]
+  const raw = Array.isArray(value) ? value : value.rules ?? []
   return raw.map((item) => {
-    const r = item as Record<string, unknown>
+    const rule = item as Record<string, unknown>
+    const severity = String(rule.severity ?? '一般提示')
+    const status = String(rule.status ?? 'draft')
     return {
-      id: String(r.id ?? ''),
-      name: String(r.name ?? ''),
-      scope: String(r.scope ?? ''),
-      severity: String(r.severity ?? '一般提示'),
-      severityClass: severityClassOf(String(r.severity ?? '')),
-      version: String(r.version ?? ''),
-      previous: String(r.previousVersion ?? ''),
-      status: String(r.status ?? 'draft'),
-      statusLabel: statusLabelOf(String(r.status ?? '')),
-      statusClass: statusClassOf(String(r.status ?? '')),
-      cases: `${r.caseCount ?? '-'} / ${r.caseCount ?? '-'}`,
-      testAt: String(r.updatedAt ?? ''),
-      evidence: String(r.evidenceRef ?? ''),
-      updatedBy: String(r.updatedBy ?? ''),
-      updatedAt: String(r.updatedAt ?? '')
-    } as RuleItem
+      id: String(rule.id ?? ''), name: String(rule.name ?? ''), scope: String(rule.scope ?? ''), severity,
+      severityClass: severityClassOf(severity), version: String(rule.version ?? ''), previous: String(rule.previousVersion ?? ''),
+      status, statusLabel: statusLabelOf(status), statusClass: statusClassOf(status), cases: `${rule.caseCount ?? '-'} / ${rule.caseCount ?? '-'}`,
+      testAt: String(rule.updatedAt ?? ''), evidence: String(rule.evidenceRef ?? ''), updatedBy: String(rule.updatedBy ?? ''), updatedAt: String(rule.updatedAt ?? '')
+    } satisfies RuleItem
   })
 }
 
@@ -244,38 +183,47 @@ function severityClassOf(severity: string): string {
   if (severity.includes('强提醒')) return 'warning'
   return 'info'
 }
+
 function statusClassOf(status: string): string {
-  if (status === 'review_pending' || status === 'in_review') return 'warning'
-  return ''
+  return status === 'review_pending' || status === 'in_review' ? 'warning' : ''
 }
+
 function statusLabelOf(status: string): string {
-  const map: Record<string, string> = { published: '已发布', review_pending: '待审核', in_review: '待审核', draft: '草稿', retired: '已撤回' }
-  return map[status] ?? status
+  const labels: Record<string, string> = { published: '已发布', review_pending: '待审核', in_review: '待审核', draft: '草稿', retired: '已撤回' }
+  return labels[status] ?? status
 }
 
-// —— 证据治理 ——
 export function loadEvidenceDocs(): Promise<EvidenceDoc[]> {
-  return mockFetchEvidenceDocs()
+  if (isPreview()) return mockFetchEvidenceDocs()
+  return getJson<EvidenceDoc[]>('/api/evidence/documents')
 }
+
 export function loadEvidenceChunks(): Promise<EvidenceChunk[]> {
-  return mockFetchEvidenceChunks()
+  if (isPreview()) return mockFetchEvidenceChunks()
+  return getJson<EvidenceChunk[]>('/api/evidence/chunks')
 }
+
 export function loadEvidenceProcessingSteps(): Promise<ProcessingStep[]> {
-  return mockFetchEvidenceProcessingSteps()
+  if (isPreview()) return mockFetchEvidenceProcessingSteps()
+  return unavailable('GET /api/evidence/documents/{evidenceId}/processing-steps')
 }
 
-// —— 接口与同步（管理视图，后端无列表端点，保持 mock） ——
 export function loadConnectors(): Promise<ConnectorItem[]> {
-  return mockFetchConnectors()
-}
-export function loadInboundEvents(): Promise<InboundEventItem[]> {
-  return mockFetchInboundEvents()
+  if (isPreview()) return mockFetchConnectors()
+  return unavailable('GET /api/integration/connectors')
 }
 
-// —— 审计日志（审计查询契约待后端补，保持 mock） ——
-export function loadAuditEvents(): Promise<AuditEventItem[]> {
-  return mockFetchAuditEvents()
+export function loadInboundEvents(): Promise<InboundEventItem[]> {
+  if (isPreview()) return mockFetchInboundEvents()
+  return unavailable('GET /api/integration/events')
 }
+
+export function loadAuditEvents(): Promise<AuditEventItem[]> {
+  if (isPreview()) return mockFetchAuditEvents()
+  return unavailable('GET /api/audit/events')
+}
+
 export function loadAuditDomains(): Promise<string[]> {
-  return mockFetchAuditDomains()
+  if (isPreview()) return mockFetchAuditDomains()
+  return unavailable('GET /api/audit/domains')
 }

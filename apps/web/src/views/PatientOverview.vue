@@ -12,13 +12,13 @@
 
     <div class="overview-grid">
       <div class="overview-main">
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前就诊与诊断</h2><el-tag size="small" type="success" effect="plain">当前有效</el-tag></div><div class="surface-panel-body"><div class="primary-diagnosis"><Stethoscope :size="20" /><div><strong>社区获得性肺炎</strong><span>HIS 诊断 · active · 2026-08-03 08:20</span></div></div><div class="participation-row"><span>主管科室</span><strong>呼吸内科</strong><span>参与科室</span><strong>无新增会诊</strong><span>住院第</span><strong>1 天</strong></div></div></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前就诊与诊断</h2><el-tag size="small" type="success" effect="plain">{{ encounterStatus }}</el-tag></div><div class="surface-panel-body"><div class="primary-diagnosis"><Stethoscope :size="20" /><div><strong>{{ diagnosisLabel }}</strong><span>{{ diagnosisSource }}</span></div></div><div class="participation-row"><span>主管科室</span><strong>{{ patient?.department || '待接口返回' }}</strong><span>参与科室</span><strong>{{ participationLabel }}</strong><span>住院日</span><strong>{{ hospitalDayLabel }}</strong></div></div></section>
         <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>关键检验与趋势</h2><span>影响剂量与风险判断</span></div><div class="lab-grid"><article v-for="lab in patient?.labs || []" :key="lab.name"><div><span>{{ lab.name }}</span><el-tag size="small" :type="lab.flag ? 'warning' : 'info'" effect="plain">{{ lab.flag || '最新' }}</el-tag></div><strong>{{ lab.value }} <small>{{ lab.unit }}</small></strong><div class="spark-bars"><i v-for="(bar, index) in lab.trend" :key="index" :style="{ height: `${bar}%` }"></i></div><p>{{ lab.note }} · LIS · 08:50</p></article></div></section>
         <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>当前与近期用药</h2><span>计划、医嘱与实际暴露分层</span></div><table class="dense-table"><thead><tr><th>药品</th><th>状态</th><th>科室</th><th>给药信息</th><th>起止时间</th><th>来源</th></tr></thead><tbody><tr v-for="drug in patient?.medications || []" :key="drug.name"><td><strong>{{ drug.name }}</strong><small class="row-note">{{ drug.code }}</small></td><td><span class="status-pill" :class="drug.statusClass"><span class="dot"></span>{{ drug.status }}</span></td><td>{{ drug.department }}</td><td>{{ drug.route }}</td><td>{{ drug.time }}</td><td><button class="record-link">{{ drug.source }} <ExternalLink :size="11" /></button></td></tr></tbody></table></section>
       </div>
       <aside class="overview-side">
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>跨就诊安全摘要</h2><span>全院范围</span></div><div class="surface-panel-body safety-history"><div class="safety-clear"><ShieldCheck :size="18" /><div><strong>未发现确认过敏或严重 ADR</strong><span>已核对 3 次历史就诊记录</span></div></div><div v-for="item in patient?.history || []" :key="item.title" class="history-item"><span>{{ item.date }}</span><div><strong>{{ item.title }}</strong><p>{{ item.text }}</p><small>{{ item.source }}</small></div></div></div></section>
-        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>数据质量</h2><span>提交前复核</span></div><div class="surface-panel-body quality-summary"><div><CircleCheck :size="16" /><span>患者身份映射一致</span></div><div><CircleCheck :size="16" /><span>关键检验未缺失</span></div><div><CircleCheck :size="16" /><span>当前用药来源可追溯</span></div><button>查看全部原始事实与来源 <ChevronRight :size="14" /></button></div></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>跨就诊安全摘要</h2><span>全院范围</span></div><div class="surface-panel-body safety-history"><div class="safety-clear"><ShieldCheck :size="18" /><div><strong>{{ safetySummaryTitle }}</strong><span>已返回 {{ patient?.history?.length || 0 }} 条历史就诊安全记录</span></div></div><div v-for="item in patient?.history || []" :key="item.title" class="history-item"><span>{{ item.date }}</span><div><strong>{{ item.title }}</strong><p>{{ item.text }}</p><small>{{ item.source }}</small></div></div></div></section>
+        <section class="surface-panel overview-section"><div class="surface-panel-header"><h2>数据质量</h2><span>提交前复核</span></div><div class="surface-panel-body quality-summary"><div><CircleCheck :size="16" /><span>患者身份映射：{{ identityQualityLabel }}</span></div><div><CircleCheck :size="16" /><span>关键检验：{{ labsQualityLabel }}</span></div><div><CircleCheck :size="16" /><span>当前用药来源：{{ medicationQualityLabel }}</span></div><button>查看全部原始事实与来源 <ChevronRight :size="14" /></button></div></section>
       </aside>
     </div>
   </div>
@@ -35,6 +35,15 @@ const route = useRoute()
 const router = useRouter()
 const patient = ref<PatientContextPayload | null>(null)
 const patientId = computed(() => String(route.params.patientId || 'P001'))
+const diagnosisLabel = computed(() => (patient.value as PatientContextPayload & { diagnosis?: string } | null)?.diagnosis || '当前诊断待接口返回')
+const diagnosisSource = computed(() => diagnosisLabel.value === '当前诊断待接口返回' ? '诊断字段未随患者上下文返回' : 'Core API 患者上下文 · 当前就诊')
+const encounterStatus = computed(() => (patient.value as PatientContextPayload & { encounterStatus?: string } | null)?.encounterStatus || '状态待确认')
+const participationLabel = computed(() => (patient.value as PatientContextPayload & { participationDepartments?: string[] } | null)?.participationDepartments?.join('、') || '接口未返回会诊关系')
+const hospitalDayLabel = computed(() => (patient.value as PatientContextPayload & { hospitalDay?: number } | null)?.hospitalDay ? `第${(patient.value as PatientContextPayload & { hospitalDay: number }).hospitalDay}天` : '待接口返回')
+const safetySummaryTitle = computed(() => patient.value?.confirmedAllergy && patient.value.confirmedAllergy !== '未记录' ? '存在确认过敏记录，需重点核对' : patient.value?.severeAdr && patient.value.severeAdr !== '未记录' ? '存在严重 ADR 记录，需重点核对' : '未返回确认过敏或严重 ADR 事实')
+const identityQualityLabel = computed(() => patient.value?.patientId && patient.value.sourcePatientId ? '已返回标识映射' : '待接口返回')
+const labsQualityLabel = computed(() => patient.value?.labs?.length ? `已返回 ${patient.value.labs.length} 项` : '未知，不按正常处理')
+const medicationQualityLabel = computed(() => patient.value?.medications?.length && patient.value.medications.every(item => item.source) ? '来源字段完整' : '待核对来源')
 
 function goTimeline() { router.push(`/doctor/timeline/${patientId.value}`) }
 

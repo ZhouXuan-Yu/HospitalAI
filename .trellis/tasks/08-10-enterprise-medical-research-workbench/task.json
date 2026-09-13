@@ -1,0 +1,33 @@
+{
+  "id": "enterprise-medical-research-workbench",
+  "name": "enterprise-medical-research-workbench",
+  "title": "企业级医学科研工作台纵向链路",
+  "description": "药师主导的回顾性药物比较研究工作台：从选题、Excel 导入、队列质控与冻结，到确定性统计分析、三级报告审核和可追溯成果包导出。",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": "research-workbench",
+  "package": "apps/web,services/core-api,services/ai-service,contracts,docs,fixtures/research",
+  "priority": "P1",
+  "creator": "ZhouXuan",
+  "assignee": "ZhouXuan",
+  "createdAt": "2026-08-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "apps/web",
+    "services/core-api",
+    "services/ai-service",
+    "contracts",
+    "docs/api/research",
+    "fixtures/research"
+  ],
+  "notes": "首期固定模板：老年非瓣膜性房颤患者阿哌沙班与利伐沙班对比；合成数据仅用于流程验证。",
+  "meta": {}
+}

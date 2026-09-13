@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hospitalai.local/contracts/research-dataset.v1.schema.json",
+  "title": "HospitalAI Research Dataset Import",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "metadata", "research"],
+  "properties": {
+    "schemaVersion": { "const": "hospitalai.research-dataset.v1" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenarioId", "name", "version", "generatedAt", "source", "synthetic", "disclaimer"],
+      "properties": {
+        "scenarioId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "source": { "type": "string", "minLength": 1 },
+        "synthetic": { "const": true },
+        "disclaimer": { "type": "string", "minLength": 12 }
+      }
+    },
+    "research": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "historicalRecords", "variables", "qualityIssues", "analysisPlan", "publicationProfile", "reportTemplate"],
+      "properties": {
+        "project": {
+          "type": "object",
+          "required": ["projectId", "title", "owner", "protocolVersion", "researchQuestion", "design", "inclusionCriteria", "exclusionCriteria", "observationWindow", "ethicsStatus"]
+        },
+        "historicalRecords": {
+          "type": "array",
+          "minItems": 20,
+          "items": {
+            "type": "object",
+            "required": ["recordId", "patientId", "encounterId", "age", "sex", "diagnosis", "admittedAt", "regimen", "treatmentResponse", "adverseEvent", "followupComplete", "sourceVersion"],
+            "properties": {
+              "recordId": { "type": "string", "minLength": 1 },
+              "patientId": { "type": "string", "pattern": "^SYN-RS-" },
+              "encounterId": { "type": "string", "pattern": "^SYN-EN-" },
+              "age": { "type": "integer", "minimum": 18, "maximum": 110 },
+              "sex": { "enum": ["F", "M"] },
+              "diagnosis": { "type": "string", "minLength": 1 },
+              "admittedAt": { "type": "string", "format": "date" },
+              "regimen": { "enum": ["阿哌沙班", "利伐沙班"] },
+              "treatmentResponse": { "enum": ["improved", "stable", "worsened", "unknown"] },
+              "adverseEvent": { "type": "boolean" },
+              "followupComplete": { "type": "boolean" },
+              "sourceVersion": { "type": "string" },
+              "followupDays": { "type": "integer", "minimum": 0 },
+              "ischemicStroke": { "type": "boolean" },
+              "majorBleeding": { "type": "boolean" },
+              "death": { "type": "boolean" },
+              "readmission": { "type": "boolean" },
+              "switchOrStop": { "type": "boolean" },
+              "egfr": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "variables": { "type": "array", "minItems": 8 },
+        "qualityIssues": { "type": "array" },
+        "analysisPlan": { "type": "object", "required": ["scriptName", "scriptVersion", "method", "outputs"] },
+        "publicationProfile": { "type": "object" },
+        "reportTemplate": { "type": "object", "required": ["title", "limitations", "applicability"] }
+      }
+    }
+  }
+}

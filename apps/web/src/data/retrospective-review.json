@@ -1,0 +1,115 @@
+{
+  "schema": "hospitalai.retrospective-review.v1",
+  "synthetic": true,
+  "sourceLabel": "合成出院回顾数据 · 演示规则/未发布证据",
+  "analysisDate": "2026-08-10",
+  "patient": {
+    "patientId": "P-SYN-001",
+    "displayName": "合成患者 A",
+    "age": 66,
+    "sex": "女",
+    "diagnosis": "社区获得性肺炎",
+    "dischargeDate": "2026-08-08",
+    "treatmentGoal": "改善感染相关症状并完成出院后序贯治疗"
+  },
+  "hospitalOrders": [
+    {
+      "id": "ORD-H-001",
+      "drugName": "头孢曲松",
+      "source": "hospital",
+      "route": "静脉滴注",
+      "dose": "按住院医嘱记录",
+      "frequency": "每日 1 次",
+      "course": "2026-08-03 至 2026-08-06",
+      "indication": "社区获得性肺炎",
+      "assessment": "reasonable",
+      "risk": "low",
+      "evidence": [
+        "医嘱记录 ORD-H-001：2026-08-03 开立，2026-08-06 停用。",
+        "诊断记录 DX-SYN-001：社区获得性肺炎。"
+      ],
+      "evidenceSnippet": "医院医嘱与患者诊断在记录层面相符；剂量依据需回看完整医嘱和院内规则。",
+      "suggestion": "保留原始医嘱、停用时间和审核记录；本条不替代临床处方审核。"
+    },
+    {
+      "id": "ORD-H-002",
+      "drugName": "阿奇霉素",
+      "source": "hospital",
+      "route": "静脉滴注",
+      "dose": "按住院医嘱记录",
+      "frequency": "每日 1 次",
+      "course": "2026-08-03 至 2026-08-06",
+      "indication": "社区获得性肺炎",
+      "assessment": "reasonable",
+      "risk": "low",
+      "evidence": [
+        "医嘱记录 ORD-H-002：与 ORD-H-001 在同一住院治疗窗口内。",
+        "诊断记录 DX-SYN-001：社区获得性肺炎。"
+      ],
+      "evidenceSnippet": "本条仅依据提供的医嘱、诊断和日期判断；未推测医生未记录的用药意图。",
+      "suggestion": "如需发表或形成正式结论，应补充指南版本、审核规则版本及完整给药记录。"
+    },
+    {
+      "id": "ORD-H-003",
+      "drugName": "氯化钠注射液",
+      "source": "hospital",
+      "route": "静脉滴注",
+      "dose": "记录未提供",
+      "frequency": "记录未提供",
+      "course": "2026-08-04 至 2026-08-06",
+      "indication": "记录未提供",
+      "assessment": "insufficient",
+      "risk": "low",
+      "evidence": [
+        "医嘱记录 ORD-H-003 存在，但当前导入数据缺少剂量、频次和用途。"
+      ],
+      "evidenceSnippet": "现有记录不能支持对用法用量、适应证匹配和疗程作出完整判断。",
+      "suggestion": "补充完整医嘱、配伍药物、实际执行记录和停用原因后再点评。"
+    }
+  ],
+  "selfPurchasedMeds": [
+    {
+      "id": "SELF-001",
+      "drugName": "左氧氟沙星",
+      "source": "self_purchased",
+      "route": "口服",
+      "dose": "患者记录为 1 片",
+      "frequency": "每日 1 次",
+      "course": "2026-08-09 至 2026-08-10",
+      "indication": "患者自述仍有咳嗽",
+      "assessment": "suspected_unreasonable",
+      "risk": "medium",
+      "conflictWith": ["ORD-H-001", "ORD-H-002"],
+      "evidence": [
+        "自购药记录 SELF-001：出院后开始自行服用。",
+        "时间记录与住院抗感染医嘱的治疗目标存在衔接关系，但未提供出院带药和停药说明。"
+      ],
+      "evidenceSnippet": "演示规则提示：自购抗感染药与既往医院抗感染方案可能存在重复或衔接不清；当前记录不足以确认实际重复用药。",
+      "suggestion": "核对患者实际服用情况、出院带药清单、购药凭证和医生停药/续用说明；未经核对不应据此形成正式临床结论。"
+    },
+    {
+      "id": "SELF-002",
+      "drugName": "布洛芬",
+      "source": "self_purchased",
+      "route": "口服",
+      "dose": "记录未提供",
+      "frequency": "记录未提供",
+      "course": "2026-08-09 至 2026-08-10",
+      "indication": "患者自述发热",
+      "assessment": "insufficient",
+      "risk": "medium",
+      "evidence": [
+        "自购药记录 SELF-002 仅记录药品名称和症状。",
+        "当前数据未提供肾功能、消化道出血史、实际剂量和使用次数。"
+      ],
+      "evidenceSnippet": "缺少关键患者信息和完整服用记录，不能判断禁忌/慎用、用法用量和停药时机。",
+      "suggestion": "补充用药剂量、次数、疗程、既往史、肾功能和合并用药后再评估。"
+    }
+  ],
+  "missingInfo": [
+    "出院带药清单及实际停药时间未返回。",
+    "自购药的规格、实际服用次数、购药凭证和患者确认记录不完整。",
+    "完整肝肾功能、过敏史和出院后症状变化记录未纳入本次导入数据。"
+  ],
+  "boundary": "本页面只对导入的实际记录做结构化回顾，不替代医生诊断、处方或药师正式审核；演示证据未发布，不可直接作为医学论文结论。"
+}

@@ -215,6 +215,7 @@ export interface PharmacistReviewItem {
   kind: string
   createdAt: string
   ruleVersion: string
+  reason?: string
 }
 
 export interface PharmacistPayload {

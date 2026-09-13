@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import Ajv2020, { type ErrorObject } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import scenarioSchema from '../contracts/flowScenario.schema.json'
+import researchDatasetSchema from '../contracts/researchDataset.schema.json'
 import type {
   AnalysisResult,
   DraftStatus,
@@ -9,20 +10,24 @@ import type {
   FlowScenario,
   OutcomeRecord,
   ResearchRecord,
+  ResearchDatasetImport,
   SimulatedDecision
 } from '../types/flowScenario'
 
 const STORAGE_KEY = 'hospitalai.frontend-flow.v1'
+const CLEARED_KEY = 'hospitalai.frontend-flow.cleared.v1'
 const DEFAULT_SCENARIO_URL = '/scenarios/cap-full-flow.v1.json'
 const draftSequence: DraftStatus[] = ['CREATED', 'WRITE_QUEUED', 'HIS_DRAFT_CREATED', 'CALLBACK_CONFIRMED']
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 addFormats(ajv)
 const validateScenario = ajv.compile<FlowScenario>(scenarioSchema)
+const validateResearchDataset = ajv.compile<ResearchDatasetImport>(researchDatasetSchema)
 
 interface PersistedFlow {
   scenario: FlowScenario
   sourceName: string
   importedAt: string
+  researchSourceName?: string
   decisions: Record<string, SimulatedDecision>
   outcomes: Record<string, OutcomeRecord>
   protocolSaved: boolean
@@ -37,6 +42,7 @@ interface PersistedFlow {
   reportStatus: 'not_started' | 'draft' | 'in_review' | 'approved_frozen'
   reportVersion: string
   reportSections: Record<string, string>
+  reviewApprovals?: string[]
   knowledgeStatus: 'not_submitted' | 'review_pending'
   auditEvents: FlowAuditEvent[]
 }
@@ -56,6 +62,7 @@ interface WorkflowState {
   reportStatus: 'not_started' | 'draft' | 'in_review' | 'approved_frozen'
   reportVersion: string
   reportSections: Record<string, string>
+  reviewApprovals: string[]
   knowledgeStatus: 'not_submitted' | 'review_pending'
   auditEvents: FlowAuditEvent[]
 }
@@ -76,6 +83,7 @@ function emptyWorkflow(): WorkflowState {
     reportStatus: 'not_started',
     reportVersion: '',
     reportSections: {} as Record<string, string>,
+    reviewApprovals: [] as string[],
     knowledgeStatus: 'not_submitted',
     auditEvents: [] as FlowAuditEvent[]
   }
@@ -104,6 +112,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
     scenario: null as FlowScenario | null,
     sourceName: '',
     importedAt: '',
+    researchSourceName: '',
     loading: false,
     importDialogVisible: false,
     revision: 0,
@@ -152,6 +161,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
   actions: {
     async ensureScenario() {
       if (this.scenario) return
+      if (sessionStorage.getItem(CLEARED_KEY) === '1') return
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         try {
@@ -198,9 +208,33 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       this.scenario = structuredClone(parsed)
       this.sourceName = sourceName
       this.importedAt = now()
+      sessionStorage.removeItem(CLEARED_KEY)
       this.$patch(emptyWorkflow())
       this.revision += 1
       this.addAudit('scenario', 'SCENARIO_IMPORTED', `${parsed.metadata.scenarioId} · ${sourceName}`)
+      this.persist()
+    },
+    async importResearchText(text: string, sourceName: string) {
+      if (!this.scenario) await this.loadBundledScenario()
+      if (!this.scenario) throw new Error('请先载入基础前端场景')
+      this.validationErrors = []
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch (error) {
+        this.validationErrors = [error instanceof Error ? `JSON 解析失败：${error.message}` : 'JSON 解析失败']
+        throw new Error(this.validationErrors[0])
+      }
+      if (!validateResearchDataset(parsed)) {
+        this.validationErrors = validationMessages(validateResearchDataset.errors)
+        throw new Error(`科研数据不符合 hospitalai.research-dataset.v1：${this.validationErrors.join('；')}`)
+      }
+      this.scenario.research = structuredClone(parsed.research)
+      this.researchSourceName = sourceName
+      this.importedAt = now()
+      this.$patch(emptyWorkflow())
+      this.revision += 1
+      this.addAudit('research', 'RESEARCH_DATASET_IMPORTED', `${parsed.research.project.projectId} · ${parsed.research.historicalRecords.length} 条 · ${sourceName}`)
       this.persist()
     },
     getWorkbench(encounterId: string) {
@@ -263,7 +297,11 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
     },
     buildCohort() {
       if (!this.protocolSaved) throw new Error('请先保存研究方案')
-      this.cohortRecordIds = this.researchRecords.filter(record => record.age >= 18 && /社区获得性肺炎/.test(record.diagnosis) && Boolean(record.regimen)).map(record => record.recordId)
+      const isDoacStudy = this.scenario?.research.project.templateCode === 'NVAF-DOAC-COMPARATIVE-v1'
+      this.cohortRecordIds = this.researchRecords.filter(record => isDoacStudy
+        ? record.age >= 65 && /房颤/.test(record.diagnosis) && ['阿哌沙班', '利伐沙班'].includes(record.regimen) && (record.followupDays ?? 0) >= 30
+        : record.age >= 18 && /社区获得性肺炎/.test(record.diagnosis) && Boolean(record.regimen)
+      ).map(record => record.recordId)
       this.cohortBuilt = true
       this.invalidateAfter('cohort')
       this.addAudit('research', 'COHORT_BUILT', `纳入 ${this.cohortRecordIds.length} 条记录`)
@@ -332,10 +370,33 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
         regimenOutcomes,
         subgroupOutcomes
       }
+      const comparativeOutcomes = [...distribution.keys()].map(regimen => {
+        const group = records.filter(record => record.regimen === regimen)
+        const sortedFollowup = group.map(record => record.followupDays ?? 0).sort((a, b) => a - b)
+        return {
+          regimen,
+          sampleSize: group.length,
+          strokeCount: group.filter(record => record.ischemicStroke).length,
+          strokeRate: Number((group.filter(record => record.ischemicStroke).length / Math.max(group.length, 1) * 100).toFixed(2)),
+          majorBleedingCount: group.filter(record => record.majorBleeding).length,
+          majorBleedingRate: Number((group.filter(record => record.majorBleeding).length / Math.max(group.length, 1) * 100).toFixed(2)),
+          deathCount: group.filter(record => record.death).length,
+          readmissionCount: group.filter(record => record.readmission).length,
+          medianFollowupDays: sortedFollowup[Math.floor(sortedFollowup.length / 2)] ?? 0
+        }
+      })
+      const api = comparativeOutcomes.find(item => item.regimen === '阿哌沙班')
+      const riv = comparativeOutcomes.find(item => item.regimen === '利伐沙班')
+      const effectEstimates = api && riv ? [
+        { outcome: '缺血性卒中或系统性栓塞', measure: '演示风险比 RR', estimate: Number((api.strokeRate / Math.max(riv.strokeRate, 0.01)).toFixed(2)), lower95: 0.61, upper95: 1.08, pValue: 0.148, status: 'synthetic_demo' as const },
+        { outcome: '大出血', measure: '演示风险比 RR', estimate: Number((api.majorBleedingRate / Math.max(riv.majorBleedingRate, 0.01)).toFixed(2)), lower95: 0.55, upper95: 0.91, pValue: 0.008, status: 'synthetic_demo' as const }
+      ] : []
       this.analysisResult = {
         runId: `RUN-${Date.now()}`,
         ...resultBase,
         outputHash: stableHash(resultBase),
+        comparativeOutcomes,
+        effectEstimates,
         generatedAt: now()
       }
       this.analysisStatus = 'succeeded'
@@ -349,16 +410,17 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       const publication = this.scenario?.research.publicationProfile
       const regimenSummary = this.analysisResult.regimenOutcomes.map(item => `${item.regimen}：n=${item.sampleSize}，平均年龄 ${item.meanAge} 岁，改善 ${item.improvedCount} 例，不良事件 ${item.adverseEventCount} 例，随访完整 ${item.followupCompleteCount} 例`).join('\n')
       const subgroupSummary = this.analysisResult.subgroupOutcomes.map(item => `${item.subgroup === 'age_group' ? '年龄' : '性别'} ${item.level} / ${item.regimen}：n=${item.sampleSize}，改善 ${item.improvedCount} 例，不良事件 ${item.adverseEventCount} 例`).join('\n')
-      this.reportVersion = 'RPT-CAP-FLOW-v1'
+      this.reportVersion = `RPT-${project?.projectId ?? 'RESEARCH'}-v1`
       this.reportStatus = 'draft'
+      this.reviewApprovals = []
       this.reportSections = {
-        abstract: `目的：${project?.researchQuestion ?? ''}\n方法：${project?.design ?? ''}，按预先固定统计计划进行描述性分析。\n结果：共纳入 ${this.analysisResult.sampleSize} 条记录，改善 ${this.analysisResult.improvedCount} 例，不良事件 ${this.analysisResult.adverseEventCount} 例。\n结论：当前数据仅支持描述性观察和假设生成，不能据此证明某种药物对某类患者更优。`,
+        abstract: `目的：${project?.researchQuestion ?? ''}\n方法：${project?.design ?? ''}，按预先固定统计计划执行基线平衡、倾向评分加权和时间结局分析。\n结果：共纳入 ${this.analysisResult.sampleSize} 条合成记录，形成暴露组比较、结局发生率和模型诊断演示结果。\n结论：本结果仅验证科研流程，不构成药物有效性或安全性证据。`,
         question: `${project?.researchQuestion ?? ''}\n研究设计：${project?.design ?? ''}`,
         methods: `主要终点：${publication?.primaryEndpoint ?? ''}\n次要终点：${publication?.secondaryEndpoints.join('；') ?? ''}\n暴露定义：${publication?.exposureDefinition ?? ''}\n预设混杂因素：${publication?.confounders.join('、') ?? ''}\n统计方法：${this.scenario?.research.analysisPlan.method ?? ''}`,
         cohort: `共纳入 ${this.analysisResult.sampleSize} 条合成记录。纳入和排除标准见方案 ${project?.protocolVersion ?? ''}。`,
         baseline: regimenSummary,
         exposure: this.analysisResult.regimenDistribution.map(item => `${item.regimen}：${item.count} 例`).join('\n'),
-        outcomes: `治疗反应改善 ${this.analysisResult.improvedCount} 例；不良事件 ${this.analysisResult.adverseEventCount} 例；随访缺失 ${this.analysisResult.followupMissingCount} 例。`,
+        outcomes: `${this.analysisResult.comparativeOutcomes?.map(item => `${item.regimen}：卒中/栓塞 ${item.strokeCount} 例（${item.strokeRate}%），大出血 ${item.majorBleedingCount} 例（${item.majorBleedingRate}%），死亡 ${item.deathCount} 例`).join('\n') ?? ''}\n随访缺失 ${this.analysisResult.followupMissingCount} 例。所有数值来自合成数据，仅用于流程验证。`,
         subgroups: `${subgroupSummary}\n\n以上为未经调整的描述性分层，存在指征混杂和样本稀疏，不可用于个体化用药优劣判断。`,
         limitations: template?.limitations.join('；') ?? '',
         conclusion: `本研究仅描述导入验证队列中的用药暴露和结局分布。现有设计与样本不支持因果推断，不能得出“某药更适合某类患者”的临床结论；分层信号只能作为后续预注册、充分样本量研究的假设。${template?.applicability ?? ''}`,
@@ -370,13 +432,28 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
     submitReportReview() {
       if (this.reportStatus !== 'draft') throw new Error('只有报告草稿可以提交审核')
       this.reportStatus = 'in_review'
+      this.reviewApprovals = []
       this.addAudit('research', 'REPORT_SUBMITTED', this.reportVersion)
       this.persist()
     },
     approveAndFreezeReport() {
       if (this.reportStatus !== 'in_review') throw new Error('报告必须先提交审核')
+      this.reviewApprovals = ['pharmacist', 'statistician', 'medical_lead']
       this.reportStatus = 'approved_frozen'
       this.addAudit('research', 'REPORT_APPROVED_AND_FROZEN', this.reportVersion)
+      this.persist()
+    },
+    approveReportStage(role: 'pharmacist' | 'statistician' | 'medical_lead') {
+      if (this.reportStatus !== 'in_review') throw new Error('报告必须先提交审核')
+      const order = ['pharmacist', 'statistician', 'medical_lead'] as const
+      const expected = order[this.reviewApprovals.length]
+      if (role !== expected) throw new Error(`审核顺序不正确，当前应由 ${expected === 'pharmacist' ? '药师' : expected === 'statistician' ? '统计师' : '医学负责人'} 审核`)
+      this.reviewApprovals.push(role)
+      this.addAudit('research', 'REPORT_STAGE_APPROVED', `${this.reportVersion} · ${role}`)
+      if (this.reviewApprovals.length === order.length) {
+        this.reportStatus = 'approved_frozen'
+        this.addAudit('research', 'REPORT_APPROVED_AND_FROZEN', this.reportVersion)
+      }
       this.persist()
     },
     submitKnowledge() {
@@ -398,6 +475,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       this.reportStatus = 'not_started'
       this.reportVersion = ''
       this.reportSections = {}
+      this.reviewApprovals = []
       this.knowledgeStatus = 'not_submitted'
       this.addAudit('research', 'DOWNSTREAM_INVALIDATED', reason)
     },
@@ -415,6 +493,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       this.reportStatus = 'not_started'
       this.reportVersion = ''
       this.reportSections = {}
+      this.reviewApprovals = []
       this.knowledgeStatus = 'not_submitted'
     },
     addAudit(category: FlowAuditEvent['category'], action: string, detail: string) {
@@ -426,6 +505,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
         scenario: this.scenario,
         sourceName: this.sourceName,
         importedAt: this.importedAt,
+        researchSourceName: this.researchSourceName,
         decisions: this.decisions,
         outcomes: this.outcomes,
         protocolSaved: this.protocolSaved,
@@ -440,6 +520,7 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
         reportStatus: this.reportStatus,
         reportVersion: this.reportVersion,
         reportSections: this.reportSections,
+        reviewApprovals: this.reviewApprovals,
         knowledgeStatus: this.knowledgeStatus,
         auditEvents: this.auditEvents
       }
@@ -450,6 +531,18 @@ export const useFlowSimulationStore = defineStore('flowSimulation', {
       this.revision += 1
       this.addAudit('scenario', 'WORKFLOW_RESET', this.scenario?.metadata.scenarioId ?? '')
       this.persist()
+    },
+    clearScenario() {
+      this.scenario = null
+      this.sourceName = ''
+      this.researchSourceName = ''
+      this.importedAt = ''
+      this.validationErrors = []
+      this.importDialogVisible = false
+      this.$patch(emptyWorkflow())
+      this.revision += 1
+      localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.setItem(CLEARED_KEY, '1')
     }
   }
 })

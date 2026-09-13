@@ -23,6 +23,19 @@ export interface ResearchRecord {
   adverseEvent: boolean
   followupComplete: boolean
   sourceVersion: string
+  followupDays?: number
+  ischemicStroke?: boolean
+  majorBleeding?: boolean
+  death?: boolean
+  readmission?: boolean
+  switchOrStop?: boolean
+  egfr?: number | null
+  hypertension?: boolean
+  diabetes?: boolean
+  priorStroke?: boolean
+  priorBleeding?: boolean
+  heartFailure?: boolean
+  antiplateletUse?: boolean
 }
 
 export interface ResearchVariable {
@@ -55,6 +68,8 @@ export interface ResearchSeed {
     exclusionCriteria: string[]
     observationWindow: string
     ethicsStatus: string
+    templateCode?: string
+    dataSource?: string
   }
   historicalRecords: ResearchRecord[]
   variables: ResearchVariable[]
@@ -84,6 +99,12 @@ export interface ResearchSeed {
     limitations: string[]
     applicability: string
   }
+}
+
+export interface ResearchDatasetImport {
+  schemaVersion: 'hospitalai.research-dataset.v1'
+  metadata: ScenarioMetadata
+  research: ResearchSeed
 }
 
 export interface FlowScenario {
@@ -145,6 +166,26 @@ export interface AnalysisResult {
     sampleSize: number
     improvedCount: number
     adverseEventCount: number
+  }>
+  comparativeOutcomes?: Array<{
+    regimen: string
+    sampleSize: number
+    strokeCount: number
+    strokeRate: number
+    majorBleedingCount: number
+    majorBleedingRate: number
+    deathCount: number
+    readmissionCount: number
+    medianFollowupDays: number
+  }>
+  effectEstimates?: Array<{
+    outcome: string
+    measure: string
+    estimate: number
+    lower95: number
+    upper95: number
+    pValue: number
+    status: 'synthetic_demo'
   }>
   generatedAt: string
 }

@@ -1,11 +1,11 @@
 <template>
   <main class="workbench" :aria-busy="store.loading">
     <header class="topbar">
-      <div class="brand-lockup" aria-label="HospitalAI 药学辅助工作台">
-        <div class="brand-mark" aria-hidden="true">H</div>
+      <div class="workbench-context" aria-label="处方推荐工作台">
+        <div class="workbench-context-icon" aria-hidden="true"><Stethoscope :size="17" /></div>
         <div>
-          <div class="brand">HospitalAI <span>药学辅助工作台</span></div>
-          <div class="product-boundary">辅助决策 · 仅生成处方草稿</div>
+          <strong>处方推荐</strong>
+          <span>医生审核工作台 · 仅生成处方草稿</span>
         </div>
       </div>
 
@@ -31,7 +31,7 @@
         <el-tooltip content="刷新患者快照" placement="bottom">
           <el-button :icon="RefreshCw" circle aria-label="刷新患者快照" :loading="store.loading" @click="load" />
         </el-tooltip>
-        <el-button class="compact-risk-trigger" :icon="ShieldAlert" @click="rightDrawerVisible = true">
+        <el-button class="compact-risk-trigger" :icon="ShieldAlert" @click="openRightPanel('risks')">
           安全审查
           <span v-if="unresolvedAlertCount" class="button-count">{{ unresolvedAlertCount }}</span>
         </el-button>
@@ -52,6 +52,20 @@
       <el-skeleton :rows="10" animated />
     </div>
 
+    <section v-if="store.error && !store.payload && !store.loading" class="workbench-error-state" role="alert" data-testid="doctor-workbench-error">
+      <div class="workbench-error-icon"><ServerCrash :size="26" aria-hidden="true" /></div>
+      <div>
+        <span class="selection-kicker">当前患者工作台</span>
+        <h2>暂时无法读取 Core API 数据</h2>
+        <p>患者事实、规则结果和推荐方案没有加载成功。系统不会用默认值或页面内置数据替代医疗事实。</p>
+        <div class="error-state-meta"><code>{{ store.error }}</code><span>请确认接口状态后重试</span></div>
+      </div>
+      <div class="workbench-error-actions">
+        <el-button type="primary" :icon="RefreshCw" @click="load">重新读取</el-button>
+        <el-button v-if="isPreview" :icon="FileJson2" @click="loadSimulatedPatient">导入验证场景</el-button>
+      </div>
+    </section>
+
     <div
       v-if="store.payload"
       class="workspace-grid"
@@ -65,6 +79,42 @@
           <span>{{ store.payload.patient.displayName }}</span>
         </button>
         <div v-show="!leftCollapsed" class="panel-body">
+        <div class="patient-panel-header">
+          <div>
+            <div class="eyebrow">当前工作范围</div>
+            <strong>患者上下文</strong>
+          </div>
+          <el-tooltip content="收起患者上下文" placement="right">
+            <el-button class="panel-collapse-trigger" :icon="PanelLeftClose" circle text aria-label="收起患者上下文" @click="leftCollapsed = true" />
+          </el-tooltip>
+        </div>
+        <section class="doctor-patient-queue" aria-labelledby="doctor-patient-queue-title">
+          <div class="section-title-row">
+            <div>
+              <span class="selection-kicker">我的患者</span>
+              <h2 id="doctor-patient-queue-title">呼吸内科工作队列</h2>
+            </div>
+            <span class="queue-count">{{ store.worklist.length }} 人</span>
+          </div>
+          <div class="doctor-queue-list">
+            <button
+              v-for="item in store.worklist.slice(0, 10)"
+              :key="item.encounterId"
+              type="button"
+              class="doctor-queue-item"
+              :class="{ selected: item.encounterId === encounterId }"
+              @click="encounterId = item.encounterId; load()"
+            >
+              <span class="queue-avatar">{{ item.displayName.slice(-1) }}</span>
+              <span class="queue-copy">
+                <strong>{{ item.displayName }} · {{ item.age }}岁{{ item.sex === 'F' ? ' 女' : item.sex === 'M' ? ' 男' : '' }}</strong>
+                <small>{{ item.diagnosis }}</small>
+                <small class="queue-plan">{{ worklistRecommendation(item) }}</small>
+              </span>
+              <span class="queue-status" :class="{ current: item.encounterId === encounterId }">{{ item.encounterId === encounterId ? '当前' : '待查看' }}</span>
+            </button>
+          </div>
+        </section>
         <section class="patient-identity">
           <div class="patient-heading">
             <div class="patient-avatar" aria-hidden="true">{{ patientInitial }}</div>
@@ -87,7 +137,6 @@
             <strong>{{ chiefComplaintSummary }}</strong>
             <small>{{ safetySummaryLine }}</small>
           </div>
-          <el-button class="collapse-panel-button" text size="small" @click="leftCollapsed = true">收起患者信息</el-button>
         </section>
 
         <section class="safety-summary" aria-labelledby="safety-summary-title">
@@ -202,47 +251,128 @@
         <div class="recommendation-heading">
           <div>
             <div class="eyebrow">处方前辅助决策</div>
-            <h2>DeepSeek 处方推荐结果</h2>
-            <p>{{ store.payload.encounter.diagnosis }} · {{ store.payload.recommendationId }}</p>
+            <h2>处方推荐</h2>
+            <p>{{ store.payload.encounter.diagnosis }} · 推荐编号 {{ store.payload.recommendationId }}</p>
           </div>
           <div class="recommendation-heading-actions">
             <el-button :icon="RefreshCw" :loading="store.loading" @click="load">生成/刷新推荐</el-button>
-            <el-button :icon="Stethoscope" @click="loadSimulatedPatient">模拟患者</el-button>
+            <el-button v-if="isPreview" :icon="Stethoscope" @click="loadSimulatedPatient">模拟患者</el-button>
             <div class="recommendation-state" :class="store.aiDegraded ? 'degraded' : ''">
               <Bot :size="16" aria-hidden="true" />
-              <span>{{ store.aiDegraded ? '解释服务降级' : 'DeepSeek 流程完成' }}</span>
+              <span>{{ store.aiDegraded ? '解释服务降级' : '推荐结果已生成' }}</span>
             </div>
           </div>
         </div>
 
-        <section class="core-result-card" :class="{ loading: store.loading || store.decisionLoading, blocked: selectedBlocked || store.hasBlockingRisk }">
-          <div class="core-result-main">
-            <span class="selection-kicker">核心推荐</span>
-            <h3>{{ selectedCandidate?.name || '等待候选方案' }}</h3>
-            <p>{{ selectedCandidate?.regimen || '输入或选择模拟患者后生成推荐结果。' }}</p>
+        <section class="first-look-summary" aria-label="当前患者与处方决策摘要">
+          <div class="patient-brief">
+            <div class="patient-brief-avatar">{{ patientInitial }}</div>
+            <div class="patient-brief-main">
+              <div class="patient-brief-name"><strong>{{ store.payload.patient.displayName }}</strong><el-tag size="small" effect="plain">{{ sexLabel }} · {{ store.payload.patient.age }}岁</el-tag></div>
+              <span>{{ store.payload.encounter.department }} · {{ store.payload.patient.sourcePatientId }} · 就诊 {{ store.payload.encounter.encounterId }}</span>
+              <span>{{ store.payload.encounter.diagnosis }} · 入院 {{ admittedAtLabel }}</span>
+            </div>
           </div>
-          <div class="core-result-side">
-            <el-tag v-if="selectedBlocked || store.hasBlockingRisk" type="danger" effect="dark">硬阻断</el-tag>
-            <el-tag v-else-if="selectedCandidate?.risks.length" type="warning" effect="plain">需复核</el-tag>
-            <el-tag v-else type="success" effect="plain">可进入医生审核</el-tag>
-            <span>{{ selectedCandidate?.reason || '推荐依据会在结果生成后显示。' }}</span>
-          </div>
-          <div class="core-monitoring">
-            <span v-for="item in selectedCandidate?.monitoring || []" :key="item">{{ item }}</span>
+          <div class="safety-glance">
+            <div class="safety-glance-title"><strong>处方前安全结论</strong><el-tag :type="decisionReadiness.type" size="small" effect="plain">{{ decisionReadiness.label }}</el-tag></div>
+            <div class="safety-glance-grid">
+              <span :class="{ danger: allergySummary.danger }"><b>药物过敏</b>{{ allergySummary.label }}</span>
+              <span :class="{ danger: adrSummary.danger }"><b>严重不良反应</b>{{ adrSummary.label }}</span>
+              <span :class="{ warning: conflictSummary.danger }"><b>当前用药冲突</b>{{ conflictSummary.label }}</span>
+              <span :class="{ warning: missingItems.length }"><b>关键检验</b>{{ missingItems.length ? `${missingItems.length}项缺失` : '已返回' }}</span>
+            </div>
           </div>
         </section>
 
-        <section class="candidate-strip" aria-label="候选方案快速选择">
-          <button
-            v-for="candidate in store.payload.candidates"
-            :key="candidate.candidateId"
-            type="button"
-            :class="{ selected: candidate.candidateId === store.selectedCandidateId, blocked: candidate.blocked }"
-            @click="selectCandidate(candidate.candidateId)"
-          >
-            <strong>{{ candidate.name }}</strong>
-            <span>{{ candidate.regimen }}</span>
-          </button>
+        <details class="decision-progress-details">
+          <summary><span>查看推荐处理状态</span><small>患者事实、规则核对、证据与候选排序</small></summary>
+          <nav class="decision-progress" aria-label="处方决策阶段">
+            <div v-for="item in decisionProgressItems" :key="item.label" class="decision-progress-item" :class="item.state">
+              <span class="progress-marker">{{ item.index }}</span>
+              <span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span>
+            </div>
+          </nav>
+        </details>
+
+        <section class="prescription-preview" :class="{ loading: store.loading || store.decisionLoading, blocked: selectedBlocked || store.hasBlockingRisk }" aria-labelledby="prescription-preview-title">
+          <header class="prescription-preview-header">
+            <div>
+              <span class="selection-kicker">{{ selectedPlanLabel }} · 处方草稿预览</span>
+              <h3 id="prescription-preview-title">{{ selectedCandidate?.name || '等待推荐方案' }}</h3>
+              <p>{{ selectedCandidate?.regimen || '等待患者上下文与候选方案数据。' }}</p>
+            </div>
+            <div class="prescription-preview-actions">
+              <el-tag v-if="selectedBlocked || store.hasBlockingRisk" type="danger" effect="dark">不可采纳：硬阻断</el-tag>
+              <el-tag v-else-if="selectedCandidate?.risks.length" type="warning" effect="plain">需复核后决定</el-tag>
+              <el-tag v-else type="success" effect="plain">待医生复核</el-tag>
+              <el-button text size="small" :icon="Pill" @click="drugDetailsOpen = true">查看药品信息</el-button>
+            </div>
+          </header>
+
+          <div class="prescription-lines">
+            <article v-for="(drug, index) in selectedDrugGuides" :key="drug.code" class="prescription-line">
+              <span class="prescription-line-index">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div class="prescription-drug-main">
+                <strong>{{ drug.name }}</strong>
+                <span>{{ drug.role }}</span>
+              </div>
+              <dl class="prescription-drug-fields">
+                <div><dt>给药途径</dt><dd>待院内规则确认</dd></div>
+                <div><dt>用法用量</dt><dd>{{ drug.dosage }}</dd></div>
+                <div><dt>疗程</dt><dd>待医生结合诊疗路径确认</dd></div>
+              </dl>
+            </article>
+            <el-empty v-if="!selectedDrugGuides.length" :image-size="44" description="当前响应未返回药品明细" />
+          </div>
+
+          <div class="prescription-monitoring" v-if="selectedCandidate?.monitoring.length">
+            <span class="prescription-section-label">核对与监测</span>
+            <span v-for="item in selectedCandidate.monitoring" :key="item">{{ item }}</span>
+          </div>
+
+          <div class="prescription-rationale">
+            <section>
+              <span class="prescription-section-label">推荐理由</span>
+              <p>{{ selectedCandidate?.reason || '当前响应未返回推荐理由。' }}</p>
+            </section>
+            <section>
+              <span class="prescription-section-label">未选择药品 / 排除事项</span>
+              <ul v-if="selectedCandidate?.excludedDrugs.length">
+                <li v-for="item in selectedCandidate.excludedDrugs" :key="item">{{ item }}</li>
+              </ul>
+              <p v-else>当前响应未返回排除项，其他候选方案请在下方查看。</p>
+            </section>
+          </div>
+        </section>
+
+        <section v-if="backupCandidates.length" class="backup-plan-section" aria-labelledby="backup-plan-title">
+          <div class="backup-plan-heading">
+            <div>
+              <span class="selection-kicker">其他可选路径</span>
+              <h2 id="backup-plan-title">备用方案</h2>
+            </div>
+            <small>仅展示摘要，点击后查看完整依据</small>
+          </div>
+          <div class="backup-plan-list">
+            <article
+              v-for="candidate in backupCandidates"
+              :key="candidate.candidateId"
+              class="backup-plan-item"
+              :class="{ selected: candidate.candidateId === store.selectedCandidateId, blocked: candidate.blocked }"
+            >
+              <div class="backup-plan-copy">
+                <strong>{{ candidate.name }}</strong>
+                <span>{{ candidate.regimen }}</span>
+                <small>{{ candidate.blocked ? '命中硬阻断，不能生成草稿' : candidate.risks[0] || candidate.difference || '备用适用路径，需结合患者情况复核' }}</small>
+              </div>
+              <div class="backup-plan-meta">
+                <el-tag v-if="candidate.blocked" size="small" type="danger" effect="plain">硬阻断</el-tag>
+                <el-tag v-else-if="candidate.risks.length" size="small" type="warning" effect="plain">需复核</el-tag>
+                <el-tag v-else size="small" effect="plain">备用</el-tag>
+                <el-button text size="small" :icon="ArrowRight" @click="selectCandidate(candidate.candidateId)">查看详情</el-button>
+              </div>
+            </article>
+          </div>
         </section>
 
         <details class="reasoning-details">
@@ -287,7 +417,7 @@
           show-icon
         />
 
-        <details class="reasoning-details comparison-details" open>
+        <details class="reasoning-details comparison-details">
           <summary>
             <span>候选方案横向对比</span>
             <small>{{ store.payload.candidates.length }} 个目录内候选</small>
@@ -370,7 +500,7 @@
         </section>
         </details>
 
-        <details class="reasoning-details drug-combo-details">
+        <details class="reasoning-details drug-combo-details" :open="drugDetailsOpen">
           <summary>
             <span>当前推荐药品组合说明</span>
             <small>{{ selectedDrugGuides.length }} 种药品 · 默认收起供核对</small>
@@ -391,14 +521,14 @@
                   <span><Pill :size="15" />{{ drug.name }}</span>
                   <small>{{ drug.role }}</small>
                 </summary>
-                <dl class="drug-guide-grid">
-                  <div><dt>核心作用</dt><dd>{{ drug.role }}</dd></div>
-                  <div><dt>适应症</dt><dd>{{ drug.indication }}</dd></div>
-                  <div><dt>用法用量</dt><dd>{{ drug.dosage }}</dd></div>
-                  <div><dt>相互作用</dt><dd>{{ drug.interactions }}</dd></div>
-                  <div><dt>常见不良反应</dt><dd>{{ drug.adverseReactions }}</dd></div>
-                  <div><dt>注意事项</dt><dd>{{ drug.precautions }}</dd></div>
-                  <div class="drug-guide-source"><dt>权威资料出处</dt><dd>{{ drug.sources }}</dd></div>
+                <dl class="drug-guide-table">
+                  <div><dt>核心作用</dt><dd>{{ drug.role }}</dd><small>仅供核对</small></div>
+                  <div><dt>适应症</dt><dd>{{ drug.indication }}</dd><small>查看依据</small></div>
+                  <div><dt>用法用量</dt><dd>{{ drug.dosage }}</dd><small>可调整</small></div>
+                  <div><dt>相互作用</dt><dd>{{ drug.interactions }}</dd><small>展开核对</small></div>
+                  <div><dt>常见不良反应</dt><dd>{{ drug.adverseReactions }}</dd><small>展开核对</small></div>
+                  <div><dt>注意事项</dt><dd>{{ drug.precautions }}</dd><small>展开详情</small></div>
+                  <div class="drug-guide-source"><dt>权威资料出处</dt><dd>{{ drug.sources }}</dd><small>查看原文</small></div>
                 </dl>
               </details>
             </div>
@@ -434,14 +564,15 @@
             </div>
 
             <div v-if="decisionMode === 'modify'" class="regimen-diff">
-              <div>
-                <span>修改前</span>
-                <p>{{ selectedCandidate?.regimen }}</p>
-              </div>
-              <ArrowRight :size="18" aria-hidden="true" />
-              <div class="after-value">
-                <label for="modified-regimen">修改后</label>
-                <el-input id="modified-regimen" v-model="store.modifyText" type="textarea" :rows="2" resize="none" />
+              <div class="prescription-edit-table" role="table" aria-label="结构化处方修改表">
+                <div class="prescription-edit-row edit-table-head" role="row"><span>处方字段</span><span>当前推荐</span><span>修改后 / 核对值</span><span>状态</span></div>
+                <div class="prescription-edit-row" role="row"><strong>药品组合</strong><span>{{ selectedCandidate?.regimen }}</span><el-input v-model="store.modifyText" size="small" aria-label="修改药品组合"/><el-tag size="small" effect="plain">可调整</el-tag></div>
+                <div class="prescription-edit-row" role="row"><strong>用法用量</strong><span>{{ selectedDrugGuides[0]?.dosage || '未返回' }}</span><el-input v-model="modifyForm.dosage" size="small" aria-label="修改用法用量"/><el-tag size="small" effect="plain">可调整</el-tag></div>
+                <div class="prescription-edit-row" role="row"><strong>给药途径</strong><span>待院内规则确认</span><el-input v-model="modifyForm.route" size="small" aria-label="修改给药途径"/><el-tag size="small" effect="plain">可调整</el-tag></div>
+                <div class="prescription-edit-row" role="row"><strong>频次</strong><span>待院内规则确认</span><el-input v-model="modifyForm.frequency" size="small" aria-label="修改用药频次"/><el-tag size="small" effect="plain">可调整</el-tag></div>
+                <div class="prescription-edit-row" role="row"><strong>疗程</strong><span>待诊疗路径确认</span><el-input v-model="modifyForm.duration" size="small" aria-label="修改疗程"/><el-tag size="small" effect="plain">可调整</el-tag></div>
+                <div class="prescription-edit-row readonly" role="row"><strong>推荐理由</strong><span class="edit-table-wide">{{ selectedCandidate?.reason || '当前响应未返回' }}</span><el-tag size="small" type="info" effect="plain">只读依据</el-tag></div>
+                <div class="prescription-edit-row readonly" role="row"><strong>证据来源</strong><span class="edit-table-wide">{{ selectedCandidate?.evidence.length || 0 }} 条受控证据 · 版本随接口返回</span><el-tag size="small" type="info" effect="plain">只读依据</el-tag></div>
               </div>
             </div>
 
@@ -474,29 +605,9 @@
           </div>
         </section>
 
-        <section v-if="flowDecision" class="prescription-lifecycle" data-testid="prescription-lifecycle" aria-labelledby="lifecycle-title">
-          <header>
-            <div><span class="selection-kicker">处方后闭环</span><h2 id="lifecycle-title">草稿回写与结局记录</h2><p>{{ flowDecision.draftId || '推荐已驳回，不生成处方草稿' }}</p></div>
-            <el-tag :type="flowDecision.action==='reject'?'info':flowOutcome?'success':'warning'" effect="plain">{{ lifecycleStatusLabel }}</el-tag>
-          </header>
-          <template v-if="flowDecision.action!=='reject'">
-            <nav class="lifecycle-steps" aria-label="处方草稿流程">
-              <div v-for="(step,index) in draftSteps" :key="step.key" :class="{done:index<=currentDraftIndex,active:index===currentDraftIndex}"><span><CircleCheck v-if="index<=currentDraftIndex" :size="14"/><span v-else>{{ index+1 }}</span></span><div><strong>{{ step.label }}</strong><small>{{ step.meta }}</small></div><ChevronRight v-if="index<draftSteps.length-1" :size="14"/></div>
-            </nav>
-            <div class="lifecycle-actions">
-              <div><strong>下一业务动作</strong><span>{{ nextLifecycleHint }}</span></div>
-              <el-alert v-if="flowActionError" type="error" :title="flowActionError" :closable="false"/>
-              <el-button v-if="currentDraftIndex<draftSteps.length-1" type="primary" :icon="Send" @click="advanceDraft">{{ nextDraftActionLabel }}</el-button>
-              <el-button v-else-if="!flowOutcome" type="primary" :icon="ClipboardPlus" @click="openOutcomeDialog">登记实际用药与出院结局</el-button>
-              <el-button v-else type="success" :icon="FlaskConical" @click="router.push('/research/workbench')">进入科研队列流程</el-button>
-            </div>
-            <div v-if="flowOutcome" class="outcome-receipt"><CircleCheck :size="17"/><div><strong>结局已结构化并进入科研候选池</strong><span>{{ responseLabel(flowOutcome.treatmentResponse) }} · 不良事件 {{ flowOutcome.adverseEvent?'有':'无' }} · 30天随访 {{ flowOutcome.followupComplete?'完整':'缺失' }}</span></div><code>LIVE-{{ encounterId }}</code></div>
-          </template>
-          <div v-else class="rejection-boundary"><Ban :size="17"/><span>驳回已写入前端审计链，流程在医生决策阶段结束。</span></div>
-        </section>
       </section>
 
-      <button v-if="rightDrawerVisible" class="drawer-backdrop" type="button" aria-label="关闭安全审查" @click="rightDrawerVisible = false"></button>
+      <button v-if="rightDrawerVisible" class="drawer-backdrop" type="button" aria-label="关闭安全审查" @click="closeRightPanel"></button>
       <aside class="panel safety-panel" :class="{ 'drawer-open': rightDrawerVisible }" aria-label="风险与证据">
         <button class="collapsed-rail safety-rail" type="button" @click="rightCollapsed = false">
           <ShieldAlert :size="18" />
@@ -510,7 +621,7 @@
             <h2>风险与证据</h2>
           </div>
           <div class="side-panel-actions">
-            <el-button class="drawer-close" :icon="X" circle text aria-label="关闭安全审查" @click="rightDrawerVisible = false" />
+            <el-button class="drawer-close" :icon="X" circle text aria-label="关闭安全审查" @click="closeRightPanel" />
             <el-button :icon="ChevronRight" circle text aria-label="收起参考记录" @click="rightCollapsed = true" />
           </div>
         </div>
@@ -639,15 +750,6 @@
       </div>
     </el-drawer>
 
-    <el-dialog v-model="outcomeDialogVisible" title="登记实际用药与出院结局" width="560px" append-to-body :close-on-click-modal="false">
-      <el-alert type="warning" title="此记录来自前端流程模拟，将作为科研队列候选记录；未知值必须显式选择，不能按正常处理。" :closable="false" show-icon/>
-      <el-form class="outcome-form" label-position="top">
-        <el-form-item label="实际执行用药方案"><el-input v-model="outcomeForm.actualRegimen" type="textarea" :rows="2"/></el-form-item>
-        <el-form-item label="院内治疗反应"><el-select v-model="outcomeForm.treatmentResponse" aria-label="院内治疗反应"><el-option label="改善" value="improved"/><el-option label="稳定" value="stable"/><el-option label="恶化" value="worsened"/><el-option label="未知 / 待随访" value="unknown"/></el-select></el-form-item>
-        <div class="outcome-switches"><label><span>住院期间不良事件</span><el-switch v-model="outcomeForm.adverseEvent"/></label><label><span>30天随访已完整</span><el-switch v-model="outcomeForm.followupComplete"/></label></div>
-      </el-form>
-      <template #footer><el-button @click="outcomeDialogVisible=false">取消</el-button><el-button type="primary" :disabled="!outcomeForm.actualRegimen.trim()" @click="saveOutcome">保存并进入科研候选池</el-button></template>
-    </el-dialog>
   </main>
 </template>
 
@@ -669,9 +771,9 @@ import {
   CircleAlert,
   CircleCheck,
   CircleHelp,
+  FileJson2,
   ExternalLink,
   FileText,
-  FlaskConical,
   GitCompareArrows,
   HeartPulse,
   History,
@@ -683,47 +785,47 @@ import {
   Microscope,
   Pencil,
   Pill,
+  PanelLeftClose,
   RefreshCw,
   Save,
   ScanSearch,
+  ServerCrash,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
-  Send,
   Stethoscope,
   TriangleAlert,
   X,
-  XCircle,
-  ClipboardPlus
+  XCircle
 } from 'lucide-vue-next'
 import type { CandidatePlan, EvidenceSnippet, Fact, SafetyAlert, StageState } from '../services/coreApi'
 import { useWorkbenchStore } from '../stores/workbench'
 import { useFlowSimulationStore } from '../stores/flowSimulation'
-import type { OutcomeRecord } from '../types/flowScenario'
 
 const route = useRoute()
 const router = useRouter()
+const isPreview = import.meta.env.VITE_UI_PREVIEW === 'true'
 const store = useWorkbenchStore()
 const flow = useFlowSimulationStore()
 const encounterId = ref(String(route.params.encounterId || 'E001'))
 const reason = ref('已核对患者事实、规则风险与证据，仅生成 HIS 处方草稿')
 const patientTab = ref('current')
 const rightTab = ref('risks')
-const leftCollapsed = ref(false)
-const rightCollapsed = ref(false)
+const leftCollapsed = ref(true)
+const rightCollapsed = ref(true)
 const rightDrawerVisible = ref(false)
 const evidenceDrawerVisible = ref(false)
 const sourceDrawerVisible = ref(false)
 const activeEvidence = ref<EvidenceSnippet | null>(null)
 const activeFact = ref<Fact | null>(null)
 const decisionMode = ref<'modify' | 'reject' | null>(null)
-const outcomeDialogVisible = ref(false)
-const flowActionError = ref('')
-const outcomeForm = ref({ actualRegimen: '', treatmentResponse: 'improved' as OutcomeRecord['treatmentResponse'], adverseEvent: false, followupComplete: true })
+const drugDetailsOpen = ref(false)
+const modifyForm = ref({ dosage: '', route: '待院内规则确认', frequency: '待院内规则确认', duration: '待诊疗路径确认' })
 
 const selectedCandidate = computed(() => store.selectedCandidate)
-const flowDecision = computed(() => flow.decisionFor(encounterId.value))
-const flowOutcome = computed(() => flow.outcomes[encounterId.value])
+const primaryCandidate = computed(() => store.payload?.candidates[0])
+const backupCandidates = computed(() => store.payload?.candidates.slice(1) ?? [])
+const selectedPlanLabel = computed(() => selectedCandidate.value?.candidateId === primaryCandidate.value?.candidateId ? '首选推荐' : '当前查看的备用方案')
 const drugGuideMap: Record<string, {
   code: string
   name: string
@@ -780,16 +882,6 @@ const drugGuideMap: Record<string, {
     sources: '药品说明书；院内抗菌药物目录；CAP 诊疗指南/院内路径。'
   }
 }
-const draftSteps = [
-  { key: 'CREATED', label: '医生审核', meta: '草稿已创建' },
-  { key: 'WRITE_QUEUED', label: '可靠任务', meta: '等待适配器' },
-  { key: 'HIS_DRAFT_CREATED', label: 'HIS 草稿', meta: '仅草稿状态' },
-  { key: 'CALLBACK_CONFIRMED', label: '状态回调', meta: '回写已确认' }
-]
-const currentDraftIndex = computed(() => flowDecision.value?.action === 'reject' ? -1 : draftSteps.findIndex(step => step.key === flowDecision.value?.draftStatus))
-const lifecycleStatusLabel = computed(() => flowDecision.value?.action === 'reject' ? '已驳回' : flowOutcome.value ? '结局已登记' : draftSteps[currentDraftIndex.value]?.label ?? '待处理')
-const nextDraftActionLabel = computed(() => ({ CREATED: '加入可靠写入任务', WRITE_QUEUED: '模拟 HIS 创建草稿', HIS_DRAFT_CREATED: '接收 HIS 状态回调' } as Record<string,string>)[String(flowDecision.value?.draftStatus)] ?? '继续')
-const nextLifecycleHint = computed(() => flowOutcome.value ? '当前患者已经成为科研候选记录，可进入科研工作台重新生成队列。' : currentDraftIndex.value === draftSteps.length - 1 ? '回写状态已确认，请登记实际执行用药和患者结局。' : '按顺序推进草稿状态，每一步都会写入前端审计事件。')
 const selectedBlocked = computed(() => Boolean(selectedCandidate.value?.blocked))
 const blockingAlerts = computed(() => store.payload?.alerts.filter(alert => alert.blocking || alert.level === 'block') ?? [])
 const strongAlerts = computed(() => store.payload?.alerts.filter(alert => alert.level === 'strong') ?? [])
@@ -850,6 +942,17 @@ const normalizedStages = computed<StageState[]>(() => {
   return ['patient_context', 'deterministic_rules', 'controlled_evidence', 'candidate_ranking']
     .map(name => stages.find(stage => stage.name === name) ?? { name, status: 'pending', elapsedMs: 0, detail: '等待上游阶段完成' })
 })
+const decisionProgressItems = computed(() => {
+  const stage = (name: string) => normalizedStages.value.find(item => item.name === name)
+  const stageLabel = (name: string) => stage(name)?.status === 'succeeded' ? '已完成' : stage(name)?.status === 'failed' ? '需处理' : '处理中'
+  return [
+    { index: '01', label: '患者事实', detail: `${store.payload?.facts.length ?? 0} 项已归集`, state: stage('patient_context')?.status === 'succeeded' ? 'done' : 'active' },
+    { index: '02', label: '硬规则', detail: `${store.payload?.alerts.length ?? 0} 项规则结果`, state: stageLabel('deterministic_rules') === '已完成' ? 'done' : 'active' },
+    { index: '03', label: '受控证据', detail: `${selectedEvidence.value.length} 条可定位证据`, state: stageLabel('controlled_evidence') === '已完成' ? 'done' : 'active' },
+    { index: '04', label: '候选方案', detail: `${store.payload?.candidates.length ?? 0} 个目录候选`, state: stageLabel('candidate_ranking') === '已完成' ? 'done' : 'active' },
+    { index: '05', label: '医生决策', detail: decisionMode.value ? '正在编辑' : store.decisionResult ? '已记录' : '待处理', state: store.decisionResult ? 'done' : 'current' }
+  ]
+})
 const decisionChain = computed(() => {
   const stageMap = Object.fromEntries(normalizedStages.value.map(stage => [stage.name, stage]))
   const patientStage = stageMap.patient_context
@@ -903,6 +1006,25 @@ const patientInitial = computed(() => store.payload?.patient.displayName.slice(0
 const sexLabel = computed(() => {
   const sex = store.payload?.patient.sex.toUpperCase()
   return sex === 'F' ? '女' : sex === 'M' ? '男' : '性别未标注'
+})
+const currentWorklistItem = computed(() => store.worklist.find(item => item.encounterId === encounterId.value))
+const admittedAtLabel = computed(() => currentWorklistItem.value?.admittedAt ? formatCompactTime(currentWorklistItem.value.admittedAt) : '待接口返回')
+const allergySummary = computed(() => {
+  const fact = store.payload?.facts.find(item => /过敏|allergy/i.test(`${item.type} ${item.label}`))
+  return fact ? { label: fact.value, danger: true } : { label: '未发现确认记录', danger: false }
+})
+const adrSummary = computed(() => {
+  const fact = store.payload?.facts.find(item => /不良反应|adr/i.test(`${item.type} ${item.label}`))
+  return fact ? { label: fact.value, danger: true } : { label: '未发现确认记录', danger: false }
+})
+const conflictSummary = computed(() => {
+  const alert = store.payload?.alerts.find(item => /冲突|重复|跨科室|相互作用/.test(item.message))
+  return alert ? { label: alert.message.replace(/^.*?：/, ''), danger: true } : { label: '未发现当前冲突', danger: false }
+})
+const decisionReadiness = computed(() => {
+  if (store.hasBlockingRisk || selectedBlocked.value) return { label: '不可采纳：硬阻断', type: 'danger' as const }
+  if (missingItems.value.length || strongAlerts.value.length || selectedCandidate.value?.risks.length) return { label: '需核对后决定', type: 'warning' as const }
+  return { label: '可进入医生复核', type: 'success' as const }
 })
 const decisionSummary = computed(() => {
   const result = store.decisionResult
@@ -959,16 +1081,39 @@ function cellClass(candidate: CandidatePlan) {
 function selectCandidate(candidateId: string) {
   store.selectedCandidateId = candidateId
   decisionMode.value = null
+  drugDetailsOpen.value = false
+}
+
+function worklistRecommendation(item: { encounterId: string }) {
+  const current = item.encounterId === encounterId.value ? store.payload?.candidates[0] : undefined
+  const simulated = flow.getWorkbench(item.encounterId)?.candidates[0]
+  const candidate = current ?? simulated
+  return candidate ? `首选：${candidate.regimen}` : '推荐摘要待接口返回'
 }
 
 function startDecision(mode: 'modify' | 'reject') {
   decisionMode.value = mode
-  if (mode === 'reject') reason.value = ''
+  if (mode === 'reject') {
+    reason.value = ''
+    return
+  }
+  modifyForm.value = {
+    dosage: selectedDrugGuides.value[0]?.dosage ?? '待院内规则确认',
+    route: '待院内规则确认',
+    frequency: '待院内规则确认',
+    duration: '待诊疗路径确认'
+  }
 }
 
 function openRightPanel(tab: 'risks' | 'evidence' | 'quality') {
   rightTab.value = tab
+  rightCollapsed.value = false
   rightDrawerVisible.value = true
+}
+
+function closeRightPanel() {
+  rightDrawerVisible.value = false
+  rightCollapsed.value = true
 }
 
 function openCandidateEvidence(candidate: CandidatePlan) {
@@ -1003,37 +1148,11 @@ async function loadSimulatedPatient() {
 }
 
 async function submit(action: 'adopt' | 'modify' | 'reject') {
+  if (action === 'modify') {
+    store.modifyText = `${store.modifyText}；给药途径：${modifyForm.value.route}；用法用量：${modifyForm.value.dosage}；频次：${modifyForm.value.frequency}；疗程：${modifyForm.value.duration}`
+  }
   await store.decide(action, reason.value)
   if (store.decisionResult) decisionMode.value = null
-}
-
-function advanceDraft() {
-  flowActionError.value = ''
-  try {
-    flow.advanceDraft(encounterId.value)
-    if (flowDecision.value) store.decisionResult = { ...flowDecision.value, prescriptionDraftId: flowDecision.value.draftId }
-  } catch (error) {
-    flowActionError.value = error instanceof Error ? error.message : '草稿状态推进失败'
-  }
-}
-
-function openOutcomeDialog() {
-  outcomeForm.value.actualRegimen = flowDecision.value?.finalRegimen ?? ''
-  outcomeDialogVisible.value = true
-}
-
-function saveOutcome() {
-  flowActionError.value = ''
-  try {
-    flow.recordOutcome(encounterId.value, { ...outcomeForm.value })
-    outcomeDialogVisible.value = false
-  } catch (error) {
-    flowActionError.value = error instanceof Error ? error.message : '结局记录失败'
-  }
-}
-
-function responseLabel(value: OutcomeRecord['treatmentResponse']) {
-  return ({ improved: '治疗反应改善', stable: '治疗反应稳定', worsened: '治疗反应恶化', unknown: '治疗反应未知' } as const)[value]
 }
 
 watch(() => store.selectedCandidateId, () => {

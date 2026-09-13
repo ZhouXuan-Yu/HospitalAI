@@ -41,10 +41,20 @@
   align-items: center;
   gap: 18px;
   padding: 0 16px;
-  border-bottom: 1px solid #d7e0e4;
+  border-bottom: 0;
+  box-shadow: 0 1px 0 rgba(31, 35, 41, .06);
   background: #fff;
 }
-.primary-nav { min-width: 0; display: flex; align-items: center; gap: 3px; overflow-x: auto; }
+.primary-nav {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.primary-nav::-webkit-scrollbar { display: none; }
 .primary-nav-item { min-height: 36px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px; border-radius: 5px; color: #5b6a72; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .primary-nav-item:hover { background: #f0f5f5; color: #125f5b; }
 .primary-nav-item.router-link-active { background: #e5f1ef; color: #0f5f5b; }
@@ -62,6 +72,7 @@
 .scope-section { margin-top: 17px; }.scope-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: #74838a; font-size: 9px; font-weight: 800; }.scope-count { min-width: 18px; color: #126b66; text-align: right; }
 .scope-row { width: 100%; min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 5px; border: 0; border-radius: 5px; background: transparent; color: #344b55; text-align: left; cursor: pointer; }.scope-row:hover,.scope-row.selected { background: #edf5f4; color: #125f5b; }.scope-row > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }.scope-row strong,.scope-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.scope-row strong { font-size: 9px; }.scope-row small { color: #74848b; font-size: 8px; }.scope-row b { color: #126b66; font-size: 9px; }.scope-avatar { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 5px; background: #d8eae6; color: #126b66; font-size: 9px; font-weight: 800; }.scope-avatar.muted { background: #edf1f2; color: #6e7e86; }
 .scope-footnote { display: flex; align-items: flex-start; gap: 6px; margin-top: 18px; padding-top: 10px; border-top: 1px solid #dde5e8; color: #8a681b; font-size: 8px; line-height: 1.45; }.collapsed-rail { height: 100%; display: grid; align-content: start; justify-items: center; gap: 10px; padding-top: 16px; color: #126b66; }.collapsed-rail span { writing-mode: vertical-rl; color: #65777f; font-size: 9px; }.collapsed-rail .rail-count { writing-mode: horizontal-tb; padding: 3px 6px; border-radius: 9px; background: #e6f2ef; color: #126b66; font-size: 9px; font-weight: 800; }
+.scope-empty { display: grid; justify-items: start; gap: 6px; margin-top: 18px; padding: 14px 12px; border: 1px dashed #ccd9dc; border-radius: 5px; color: #6d7d84; }.scope-empty svg { color: #5f8e89; }.scope-empty strong { color: #38545e; font-size: 10px; }.scope-empty span { font-size: 8px; line-height: 1.5; }
 .app-shell.nav-collapsed { grid-template-columns: 58px minmax(0, 1fr); }.app-shell.nav-collapsed .shell-topbar { grid-template-columns: 58px minmax(0, 1fr) auto; }.app-shell.nav-collapsed .shell-brand { padding: 0; justify-content: center; }.app-shell.nav-collapsed .shell-brand-copy { display: none; }
 
 .shell-brand {
@@ -248,6 +259,18 @@
   gap: 8px;
 }
 
+.debug-data-status {
+  padding: 4px 7px;
+  border: 1px solid #ead7a8;
+  border-radius: 4px;
+  background: #fffaf0;
+  color: #8a681b;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.debug-data-status.ready { border-color: #b9ddd1; background: #eef8f5; color: #126b66; }
+.debug-data-button { padding: 7px 9px; font-size: 9px; }
+
 .notification-dot { position: absolute; top: 7px; right: 163px; width: 6px; height: 6px; border: 1px solid #fff; border-radius: 50%; background: #c4363d; }
 
 .shell-user {
@@ -274,6 +297,10 @@
 .app-main .workbench { min-height: 0; height: 100%; }
 .app-main .workspace-grid { height: auto; min-height: 0; }
 .app-main .role-identity { display: none; }
+.app-shell.immersive-shell { grid-template-columns: minmax(0, 1fr); }
+.app-shell.immersive-shell .app-sidebar { display: none; }
+.app-shell.immersive-shell .shell-topbar { grid-template-columns: 220px minmax(0, 1fr) auto; }
+.app-shell.immersive-shell .app-main { grid-column: 1; }
 
 .product-page {
   min-height: 100%;
@@ -408,7 +435,23 @@
   .shell-brand { padding: 0; justify-content: center; }
   .shell-brand-copy,.scope-body { display: none; }
   .shell-search { display: none; }
+  .debug-data-status { display: none; }
+  .debug-data-button { padding-inline: 7px; }
   .summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-item:nth-child(2) { border-right: none; }
   .summary-item:nth-child(-n+2) { border-bottom: 1px solid #dfe6e9; }
+}
+
+@media (max-width: 1280px) {
+  .app-shell.immersive-shell { grid-template-columns: minmax(0, 1fr); }
+  .app-shell.immersive-shell .shell-topbar { grid-template-columns: 190px minmax(0, 1fr) auto; }
+}
+
+/* The rail is a collapsed-state affordance, never a second visible panel. */
+.workspace-grid .collapsed-rail { display: none; }
+.workspace-grid.left-collapsed .patient-rail,
+.workspace-grid.right-collapsed .safety-rail { display: grid; }
+
+@media (max-width: 1280px) {
+  .workspace-grid .collapsed-rail { display: grid; }
 }

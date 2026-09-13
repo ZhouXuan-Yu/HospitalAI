@@ -1,52 +1,227 @@
 <template>
-  <div class="product-page">
-    <header class="page-heading"><div><h1>风险复核队列</h1><p>统一处理强提醒、跨科室冲突、严重 ADR 与处方草稿复核，阻断风险不能被任何角色绕过。</p></div><div class="page-heading-actions"><el-button :icon="SlidersHorizontal">队列配置</el-button><el-button type="primary" :icon="RefreshCw" :loading="loading" @click="loadReviews">刷新待办</el-button></div></header>
-    <section class="summary-strip"><div class="summary-item"><div class="summary-icon danger"><ShieldX :size="18" /></div><div><strong>2</strong><span>阻断协同任务</span></div></div><div class="summary-item"><div class="summary-icon warning"><TriangleAlert :size="18" /></div><div><strong>4</strong><span>强提醒待复核</span></div></div><div class="summary-item"><div class="summary-icon blue"><MessagesSquare :size="18" /></div><div><strong>2</strong><span>跨科室沟通中</span></div></div><div class="summary-item"><div class="summary-icon"><Clock3 :size="18" /></div><div><strong>18 min</strong><span>平均待处理时长</span></div></div></section>
-    <div class="toolbar-band"><el-input v-model="query" :prefix-icon="Search" placeholder="患者、药品、任务编号" clearable /><el-select v-model="queue"><el-option label="全部队列" value="all" /><el-option label="处方风险复核" value="prescription" /><el-option label="ADR 复核" value="adr" /><el-option label="跨科室协同" value="collaboration" /></el-select><el-select v-model="priority"><el-option label="全部优先级" value="all" /><el-option label="紧急" value="urgent" /><el-option label="高" value="high" /><el-option label="普通" value="normal" /></el-select><span class="toolbar-spacer"></span><el-checkbox v-model="onlyMine">仅看分配给我</el-checkbox></div>
-    <div class="split-workspace review-workspace">
-      <section class="split-list"><div class="queue-tabs"><button v-for="tab in tabs" :key="tab.value" :class="{active:activeTab===tab.value}" @click="activeTab=tab.value">{{ tab.label }}<span>{{ tab.count }}</span></button></div><div class="review-list"><button v-for="item in filteredItems" :key="item.id" :class="{active:selectedId===item.id}" @click="selectedId=item.id"><div class="review-card-top"><span class="status-pill" :class="item.levelClass"><span class="dot"></span>{{ item.level }}</span><small>{{ item.wait }}</small></div><strong>{{ item.title }}</strong><p>{{ item.patient }} · {{ item.encounter }} · {{ item.department }}</p><div class="review-card-drugs"><Pill :size="13" />{{ item.drugs }}</div><div class="review-card-footer"><span>{{ item.id }}</span><span>{{ item.kind }}</span></div></button></div></section>
-      <section v-if="selected" class="split-detail review-detail"><div class="detail-heading"><div><span class="status-pill" :class="selected.levelClass"><span class="dot"></span>{{ selected.level }}</span><h2>{{ selected.title }}</h2><p>{{ selected.id }} · 创建于 {{ selected.createdAt }} · 规则版本 {{ selected.ruleVersion }}</p></div><el-button :icon="MoreHorizontal" circle /></div><div class="review-patient"><div class="review-avatar">{{ selected.patient.slice(-1) }}</div><div><strong>{{ selected.patient }}</strong><span>男 · 68岁 · {{ selected.encounter }} · {{ selected.department }}</span></div><el-button size="small" @click="$router.push('/doctor/workbench/E004')">打开患者决策台</el-button></div><el-tabs v-model="detailTab" class="detail-tabs"><el-tab-pane label="风险与双方方案" name="risk"><div class="risk-comparison"><section><span>当前科室拟用方案</span><strong>头孢曲松 + 阿奇霉素</strong><p>呼吸内科 · 陈医生 · 待生成草稿</p></section><div class="conflict-axis"><GitCompareArrows :size="19" /><span>重复用药</span></div><section><span>其他科室有效医嘱</span><strong>阿奇霉素</strong><p>心内科 · 李医生 · 08-03 07:05 生效</p></section></div><div class="rule-hit"><ShieldAlert :size="18" /><div><strong>HR-XDEPT-001 · 跨科室当前有效用药冲突</strong><p>同一患者多个科室存在当前有效药物，新方案提交前必须复核；系统不得自动停止其他科室医嘱。</p><button>查看命中事实 ORD-CARD-004 <ExternalLink :size="12" /></button></div></div><div class="evidence-brief"><div class="section-caption"><h3>相关证据与规则依据</h3><span>2 条</span></div><article><BookOpenCheck :size="16" /><div><strong>CAP 演示证据集：监测要求</strong><p>第4页 · 监测项目 · 表2</p></div><el-button size="small">查看定位</el-button></article><article><GitBranch :size="16" /><div><strong>跨科室冲突规则</strong><p>v2026.08 · 已发布演示规则</p></div><el-button size="small">查看版本</el-button></article></div></el-tab-pane><el-tab-pane label="沟通与处理记录" name="communication"><div class="communication-list"><article v-for="entry in communications" :key="entry.time"><span>{{ entry.actor.slice(0,1) }}</span><div><div><strong>{{ entry.actor }}</strong><time>{{ entry.time }}</time></div><p>{{ entry.text }}</p></div></article></div><el-input v-model="message" type="textarea" :rows="3" placeholder="记录与原开方科室的沟通内容" /><div class="message-actions"><el-button :icon="Paperclip">添加附件</el-button><el-button type="primary" :icon="Send">发送并记录</el-button></div></el-tab-pane></el-tabs><div class="review-resolution"><label><span>复核结论 <em>必填</em></span><el-select v-model="resolution"><el-option label="请选择处理结果" value="" /><el-option label="调整新方案" value="adjust_new" /><el-option label="原科室停用/替换" value="adjust_existing" /><el-option label="经评估继续并加强监测" value="continue" /><el-option label="退回医生补充信息" value="return" /></el-select></label><label class="resolution-note"><span>处理说明 <em>必填</em></span><el-input v-model="resolutionNote" placeholder="说明风险判断、责任人和后续监测要求" /></label><el-button type="primary" :icon="CheckCircle2" :disabled="!resolution || !resolutionNote || resolving" :loading="resolving" @click="completeReview">完成复核</el-button><span v-if="resolveMessage" class="resolve-feedback">{{ resolveMessage }}</span></div></section>
-    </div>
+  <div class="product-page pharmacist-review-page">
+    <header class="review-page-heading">
+      <div>
+        <div class="eyebrow"><ShieldCheck :size="14" /> 药师工作台 / 当日医嘱审核</div>
+        <h1>处方审核</h1>
+        <p>以科室为工作范围，以当天未审核医嘱为审核单位；联合用药只核对患者当天有效医嘱。</p>
+      </div>
+      <div class="review-heading-actions">
+        <span class="synthetic-note">预览数据 · {{ reviewDate }}</span>
+        <el-button :icon="RefreshCw" :loading="loading" @click="loadReviews">刷新当天医嘱</el-button>
+      </div>
+    </header>
+
+    <section class="department-bar" aria-label="审核范围">
+      <div class="department-selector">
+        <span class="bar-label">负责科室</span>
+        <el-select v-model="department" size="default" aria-label="选择负责科室">
+          <el-option v-for="item in departments" :key="item" :label="item" :value="item" />
+        </el-select>
+      </div>
+      <div class="department-stats">
+        <span><strong>{{ departmentRows.length }}</strong> 条当日医嘱</span>
+        <span class="warning-text"><strong>{{ abnormalCount }}</strong> 条需关注</span>
+        <span class="success-text"><strong>{{ passedCount }}</strong> 条自动通过</span>
+        <span><strong>{{ pendingCount }}</strong> 条待药师处理</span>
+      </div>
+    </section>
+
+    <section class="review-workspace-new" :class="{ 'detail-closed': !selectedRow }">
+      <section class="order-table-panel" aria-label="当日未审核医嘱列表">
+        <div class="order-table-toolbar">
+          <div>
+            <h2>{{ department }} · 当日未审核医嘱</h2>
+            <span>一行代表一条药品医嘱，同一患者的其他当日有效医嘱在右侧详情中核对</span>
+          </div>
+          <div class="order-table-filters">
+            <el-input v-model="query" :prefix-icon="Search" clearable placeholder="搜索患者、药品或医嘱号" />
+            <el-checkbox v-model="onlyAbnormal">仅看异常</el-checkbox>
+          </div>
+        </div>
+
+        <div v-if="loading" class="order-loading"><el-skeleton :rows="8" animated /></div>
+        <div v-else-if="!filteredRows.length" class="order-empty">
+          <ClipboardCheck :size="28" />
+          <strong>当前科室没有符合条件的未审核医嘱</strong>
+          <span>请切换科室、清除筛选或刷新当天数据。</span>
+        </div>
+        <div v-else class="order-table-scroll">
+          <table class="order-review-table">
+            <thead>
+              <tr>
+                <th>审核状态</th>
+                <th>患者基本信息</th>
+                <th>当天药品医嘱</th>
+                <th>单医嘱审查</th>
+                <th>联合用药审查</th>
+                <th>自动审核结果</th>
+                <th>医嘱有效时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in filteredRows" :key="row.rowId" :class="{ selected: selectedRow?.rowId === row.rowId, abnormal: row.abnormal }" @click="selectedRowId = row.rowId">
+                <td><span class="order-status" :class="row.source.levelClass"><i></i>{{ row.source.level }}</span></td>
+                <td><div class="patient-cell"><strong>{{ row.source.patient }}</strong><span>{{ row.source.encounter }} · {{ row.source.department }}</span></div></td>
+                <td><div class="drug-cell"><strong>{{ row.drugName }}</strong><span>{{ row.orderSummary }}</span><small>{{ row.source.id }}</small></div></td>
+                <td><span class="audit-result" :class="row.singleClass">{{ row.singleResult }}</span></td>
+                <td><span class="audit-result" :class="row.comboClass">{{ row.comboResult }}</span></td>
+                <td><div class="auto-result"><strong>{{ row.autoResult }}</strong><span>{{ row.ruleSummary }}</span></div></td>
+                <td><span class="order-window">{{ row.orderWindow }}</span></td>
+                <td><el-button text size="small" :icon="row.abnormal ? ShieldAlert : Search" @click.stop="selectedRowId = row.rowId">查看</el-button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside v-if="selectedRow" class="order-detail-panel" aria-label="当日医嘱审核详情">
+        <header class="order-detail-heading">
+          <div><span class="selection-kicker">当前审核医嘱</span><h2>{{ selectedRow.drugName }}</h2><p>{{ selectedRow.source.id }} · 审核日期 {{ reviewDate }}</p></div>
+          <el-button :icon="X" circle text aria-label="关闭医嘱详情" @click="selectedRowId = ''" />
+        </header>
+
+        <section class="detail-patient-brief">
+          <div class="detail-avatar">{{ selectedRow.source.patient.slice(-1) }}</div>
+          <div><strong>{{ selectedRow.source.patient }}</strong><span>{{ selectedRow.source.encounter }} · {{ selectedRow.source.department }}</span><small>当前诊断：{{ selectedRow.source.title }}</small></div>
+        </section>
+
+        <section class="order-fact-table">
+          <div><dt>药品</dt><dd>{{ selectedRow.drugName }}</dd><small>当前医嘱</small></div>
+          <div><dt>给药信息</dt><dd>{{ selectedRow.orderSummary }}</dd><small>接口返回</small></div>
+          <div><dt>开始时间</dt><dd>{{ selectedRow.orderWindow }}</dd><small>{{ selectedRow.isLongTerm ? '持续用药' : '当日医嘱' }}</small></div>
+          <div><dt>审核范围</dt><dd>{{ reviewDate }} 当天有效医嘱</dd><small>按日审核</small></div>
+        </section>
+
+        <section class="auto-audit-section">
+          <div class="detail-section-heading"><div><span class="selection-kicker">知识库自动审核</span><h3>单医嘱与联合用药结果</h3></div><span class="auto-audit-badge" :class="selectedRow.abnormal ? 'warning' : 'success'">{{ selectedRow.autoResult }}</span></div>
+          <div class="audit-result-grid">
+            <div><span>单医嘱合理性</span><strong :class="selectedRow.singleClass">{{ selectedRow.singleResult }}</strong><small>药品目录、医嘱字段与患者安全事实</small></div>
+            <div><span>联合用药合理性</span><strong :class="selectedRow.comboClass">{{ selectedRow.comboResult }}</strong><small>仅核对患者当天其他有效医嘱</small></div>
+          </div>
+          <div class="rule-hit-compact"><ShieldAlert :size="16" /><div><strong>{{ selectedRow.ruleSummary }}</strong><p>{{ selectedRow.source.reason || '完整命中事实与规则详情由审核服务返回。' }}</p></div></div>
+        </section>
+
+        <section class="same-day-medications">
+          <div class="detail-section-heading"><div><span class="selection-kicker">联合用药上下文</span><h3>患者当天其他有效医嘱</h3></div><span>{{ sameDayDrugs.length }} 条</span></div>
+          <div v-if="sameDayDrugs.length" class="same-day-drug-list">
+            <div v-for="drug in sameDayDrugs" :key="drug.name" :class="{ current: drug.name === selectedRow.drugName }"><Pill :size="15" /><strong>{{ drug.name }}</strong><span>{{ drug.current ? '当前审核' : '同日其他有效医嘱' }}</span></div>
+          </div>
+          <p v-else class="detail-muted">当前接口未返回患者当天其他有效医嘱。</p>
+        </section>
+
+        <section class="pharmacist-resolution">
+          <label><span>药师审核结论 <em>必填</em></span><el-select v-model="resolution" placeholder="请选择处理结果"><el-option label="审核通过" value="approved" /><el-option label="标记疑问并通知医生" value="question" /><el-option label="退回医生修改" value="returned" /></el-select></label>
+          <label><span>审核说明 <em>必填</em></span><el-input v-model="resolutionNote" type="textarea" :rows="3" placeholder="记录单医嘱判断、联合用药判断和后续处理" /></label>
+          <el-button type="primary" :icon="CheckCircle2" :disabled="!resolution || !resolutionNote.trim() || resolving" :loading="resolving" @click="completeReview">保存本条审核</el-button>
+          <span v-if="resolveMessage" class="resolve-feedback">{{ resolveMessage }}</span>
+        </section>
+      </aside>
+    </section>
   </div>
 </template>
+
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BookOpenCheck, CheckCircle2, Clock3, ExternalLink, GitBranch, GitCompareArrows, MessagesSquare, MoreHorizontal, Paperclip, Pill, RefreshCw, Search, Send, ShieldAlert, ShieldX, SlidersHorizontal, TriangleAlert } from 'lucide-vue-next'
+import { CheckCircle2, ClipboardCheck, Pill, RefreshCw, Search, ShieldAlert, ShieldCheck, X } from 'lucide-vue-next'
 import { loadPharmacistReviews, resolvePharmacistReview } from '../services/dataAccess'
-import type { PharmacistReviewItem, PharmacistPayload } from '../services/dataAccess'
+import type { PharmacistReviewItem } from '../services/dataAccess'
 
-const query=ref(''),queue=ref('all'),priority=ref('all'),onlyMine=ref(false),activeTab=ref('pending'),selectedId=ref('PR-2026-0084'),detailTab=ref('risk'),message=ref(''),resolution=ref(''),resolutionNote=ref(''),loading=ref(false)
-const tabs=ref<Array<{label:string;value:string;count:number}>>([])
-const items=ref<PharmacistReviewItem[]>([])
-const communications=ref<PharmacistPayload['communications']>([])
+type ReviewRow = {
+  rowId: string
+  source: PharmacistReviewItem
+  drugName: string
+  orderSummary: string
+  orderWindow: string
+  isLongTerm: boolean
+  singleResult: string
+  singleClass: string
+  comboResult: string
+  comboClass: string
+  autoResult: string
+  ruleSummary: string
+  abnormal: boolean
+}
+
+const query = ref('')
+const department = ref('呼吸内科')
+const onlyAbnormal = ref(false)
+const selectedRowId = ref('')
+const loading = ref(false)
+const resolution = ref('')
+const resolutionNote = ref('')
+const resolveMessage = ref('')
+const resolving = ref(false)
+const items = ref<PharmacistReviewItem[]>([])
+
+const departments = computed(() => [...new Set(items.value.map(item => item.department).filter(Boolean))])
+const reviewDate = computed(() => items.value[0]?.createdAt?.slice(0, 10) || '当天')
+const departmentItems = computed(() => items.value.filter(item => item.department === department.value))
+const departmentRows = computed(() => departmentItems.value.flatMap(toReviewRows))
+const filteredRows = computed(() => departmentRows.value.filter(row => {
+  const matchesQuery = !query.value || `${row.source.patient} ${row.source.encounter} ${row.drugName} ${row.source.id}`.toLowerCase().includes(query.value.toLowerCase())
+  return matchesQuery && (!onlyAbnormal.value || row.abnormal)
+}))
+const selectedRow = computed(() => selectedRowId.value ? filteredRows.value.find(row => row.rowId === selectedRowId.value) : undefined)
+const abnormalCount = computed(() => departmentRows.value.filter(row => row.abnormal).length)
+const passedCount = computed(() => departmentRows.value.filter(row => !row.abnormal).length)
+const pendingCount = computed(() => departmentRows.value.length)
+const sameDayDrugs = computed(() => {
+  const source = selectedRow.value?.source
+  if (!source) return []
+  return source.drugs.split(' · ').filter(Boolean).map(name => ({ name, current: name === selectedRow.value?.drugName }))
+})
+
+function toReviewRows(item: PharmacistReviewItem): ReviewRow[] {
+  const drugs = item.drugs.split(' · ').filter(Boolean)
+  const conflict = /冲突|重复|联合|跨科室|相互作用/.test(`${item.title} ${item.kind} ${item.reason || ''}`)
+  const singleConcern = item.levelClass === 'danger' || /ADR|剂量|过敏|不良反应/.test(`${item.title} ${item.kind}`)
+  return (drugs.length ? drugs : ['待接口返回药品']).map((drugName, index) => {
+    const abnormal = item.levelClass !== 'info' || conflict || singleConcern
+    return {
+      rowId: `${item.id}-${index + 1}`,
+      source: item,
+      drugName,
+      orderSummary: item.kind === '跨科室协同' ? '给药信息待详情接口返回' : '当日有效医嘱 · 具体字段待接口返回',
+      orderWindow: item.kind.includes('长期') ? '开始时间至结束时间 · 未停用' : '当日开立 · 未停用',
+      isLongTerm: item.kind.includes('长期'),
+      singleResult: singleConcern ? '需复核' : '自动通过',
+      singleClass: singleConcern ? 'danger-text' : 'success-text',
+      comboResult: conflict ? '发现同日问题' : '未发现冲突',
+      comboClass: conflict ? 'warning-text' : 'success-text',
+      autoResult: item.levelClass === 'danger' ? '强提醒' : conflict ? '存在冲突' : '自动通过',
+      ruleSummary: item.ruleVersion || (conflict ? '联合用药规则待确认' : '规则校验通过'),
+      abnormal
+    }
+  })
+}
 
 async function loadReviews() {
   loading.value = true
   try {
     const payload = await loadPharmacistReviews()
-    tabs.value = payload.tabs
     items.value = payload.items
-    communications.value = payload.communications
+    if (!departments.value.includes(department.value)) department.value = departments.value[0] || ''
+    selectedRowId.value = ''
+    resolution.value = ''
+    resolutionNote.value = ''
   } finally {
     loading.value = false
   }
 }
 
-const filteredItems=computed(()=>items.value.filter(item=>!query.value||`${item.patient}${item.title}${item.drugs}${item.id}`.includes(query.value)))
-const selected=computed(()=>items.value.find(item=>item.id===selectedId.value)??items.value[0])
-const resolveMessage=ref('')
-const resolving=ref(false)
-
 async function completeReview() {
-  if (!resolution.value || !resolutionNote.value || !selected.value) return
+  if (!selectedRow.value || !resolution.value || !resolutionNote.value.trim()) return
   resolving.value = true
   try {
-    await resolvePharmacistReview(selected.value.id, resolution.value)
-    resolveMessage.value = `复核 ${selected.value.id} 已提交，药师复核完成并记录审计。`
+    await resolvePharmacistReview(selectedRow.value.source.id, resolution.value)
+    resolveMessage.value = `${selectedRow.value.source.id} 已保存本次审核记录。`
     resolution.value = ''
     resolutionNote.value = ''
+    await loadReviews()
   } catch (error) {
-    resolveMessage.value = `复核提交失败：${error instanceof Error ? error.message : String(error)}`
+    resolveMessage.value = `审核保存失败：${error instanceof Error ? error.message : String(error)}`
   } finally {
     resolving.value = false
   }
@@ -54,6 +229,44 @@ async function completeReview() {
 
 onMounted(loadReviews)
 </script>
+
 <style scoped>
-.review-workspace{height:calc(100vh - 242px);min-height:560px}.queue-tabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #d8e1e4;background:#fff}.queue-tabs button{min-height:42px;border:none;border-bottom:2px solid transparent;background:transparent;color:#65757d;font-size:9px;cursor:pointer}.queue-tabs button.active{border-bottom-color:#126b66;color:#125f5b;font-weight:750}.queue-tabs span{margin-left:3px}.review-list{display:grid;align-content:start;max-height:calc(100% - 43px);overflow:auto}.review-list>button{display:grid;gap:6px;padding:12px;border:0;border-bottom:1px solid #dce4e7;background:transparent;color:#253941;text-align:left;cursor:pointer}.review-list>button:hover{background:#f2f6f7}.review-list>button.active{background:#eaf3f2;box-shadow:inset 3px 0 0 #126b66}.review-card-top,.review-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.review-card-top small,.review-card-footer{color:#728189;font-size:8px}.review-list>button>strong{font-size:11px}.review-list>button>p{margin:0;color:#687880;font-size:9px}.review-card-drugs{display:flex;align-items:center;gap:5px;color:#435b66;font-size:9px}.review-detail{overflow:auto}.detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid #dce4e7}.detail-heading h2{margin:7px 0 3px;font-size:16px}.detail-heading p{margin:0;color:#6e7d85;font-size:8px}.review-patient{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px;background:#f3f7f8}.review-avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:5px;background:#e2edec;color:#126b66;font-weight:800}.review-patient>div:nth-child(2){min-width:0;flex:1;display:grid;gap:2px}.review-patient strong{font-size:10px}.review-patient span{color:#6a7a82;font-size:8px}.detail-tabs{margin-top:8px}.risk-comparison{display:grid;grid-template-columns:minmax(0,1fr) 80px minmax(0,1fr);align-items:stretch;border:1px solid #d7e0e4;border-radius:5px;overflow:hidden}.risk-comparison section{padding:12px}.risk-comparison section>span{color:#708087;font-size:8px}.risk-comparison section>strong{display:block;margin-top:6px;font-size:11px}.risk-comparison section>p{margin:5px 0 0;color:#65757d;font-size:8px}.conflict-axis{display:grid;place-items:center;align-content:center;gap:5px;background:#fff4e5;color:#9c590d}.conflict-axis span{font-size:8px;font-weight:750}.rule-hit{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:10px;border-left:4px solid #a75a08;background:#fff7e9;color:#825018}.rule-hit>div{display:grid;gap:4px}.rule-hit strong{font-size:10px}.rule-hit p{margin:0;font-size:8px;line-height:1.5}.rule-hit button{width:max-content;display:flex;align-items:center;gap:3px;padding:0;border:0;background:transparent;color:#7f551e;font-size:8px;cursor:pointer}.section-caption{display:flex;align-items:center;justify-content:space-between;margin:14px 0 7px}.section-caption h3{margin:0;font-size:11px}.section-caption span{color:#718088;font-size:8px}.evidence-brief article{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #dce4e7;border-bottom:0}.evidence-brief article:last-child{border-bottom:1px solid #dce4e7}.evidence-brief article>div{min-width:0;flex:1;display:grid;gap:2px}.evidence-brief strong{font-size:9px}.evidence-brief p{margin:0;color:#6d7d84;font-size:8px}.communication-list{display:grid;margin-bottom:12px}.communication-list article{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid #e0e6e9}.communication-list article>span{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#e6efef;color:#126b66;font-size:9px;font-weight:800}.communication-list article>div>div{display:flex;justify-content:space-between}.communication-list strong,.communication-list time{font-size:8px}.communication-list time{color:#78868d}.communication-list p{margin:4px 0 0;color:#435963;font-size:9px}.message-actions{display:flex;justify-content:space-between;margin-top:8px}.review-resolution{display:grid;grid-template-columns:190px minmax(240px,1fr) auto;align-items:end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #dce4e7}.review-resolution label>span{display:block;margin-bottom:4px;color:#64757d;font-size:8px}.review-resolution em{color:#b82e36;font-style:normal}.review-resolution .el-select{width:100%}.resolve-feedback{display:block;grid-column:1/-1;color:#267058;font-size:8px}@media(max-width:1350px){.review-resolution{grid-template-columns:1fr}.risk-comparison{grid-template-columns:1fr}.conflict-axis{min-height:45px}}
+.pharmacist-review-page { min-width: 0; }
+.review-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.eyebrow { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: #126b66; font-size: 10px; font-weight: 750; }
+.review-page-heading h1 { margin: 0; color: #1d3942; font-size: 24px; }
+.review-page-heading p { margin: 6px 0 0; color: #65777e; font-size: 11px; }
+.review-heading-actions { display: flex; align-items: center; gap: 10px; }
+.synthetic-note { color: #8a681b; font-size: 10px; white-space: nowrap; }
+.department-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #dce7e7; border-radius: 6px; background: #fbfdfd; }
+.department-selector, .department-stats { display: flex; align-items: center; gap: 9px; }
+.bar-label { color: #506970; font-size: 11px; font-weight: 750; }
+.department-selector .el-select { width: 170px; }
+.department-stats { flex-wrap: wrap; justify-content: flex-end; color: #61747b; font-size: 10px; }
+.department-stats span { padding-left: 10px; border-left: 1px solid #dce7e7; }
+.department-stats strong { color: #263f47; font-size: 13px; }
+.warning-text { color: #a06c1a !important; }.warning-text strong { color: #a06c1a; }
+.success-text { color: #28745b !important; }.success-text strong { color: #28745b; }
+.danger-text { color: #b23b45 !important; }.danger-text strong { color: #b23b45; }
+.review-workspace-new { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 42%); gap: 12px; min-height: 640px; }
+.review-workspace-new.detail-closed { grid-template-columns: 1fr; }
+.order-table-panel, .order-detail-panel { min-width: 0; background: #fff; border: 1px solid #dce5e6; border-radius: 7px; }
+.order-table-panel { overflow: hidden; }
+.order-table-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 15px; border-bottom: 1px solid #e1e9e9; }
+.order-table-toolbar h2 { margin: 0 0 4px; color: #23414a; font-size: 14px; }.order-table-toolbar span { color: #728189; font-size: 9px; }
+.order-table-filters { display: flex; align-items: center; gap: 10px; }.order-table-filters .el-input { width: 230px; }
+.order-table-scroll { overflow: auto; }.order-review-table { width: 100%; min-width: 1030px; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
+.order-review-table th { padding: 9px 8px; background: #f5f8f8; color: #60737a; font-size: 9px; font-weight: 800; text-align: left; white-space: nowrap; }
+.order-review-table td { height: 70px; padding: 9px 8px; border-top: 1px solid #e6eded; vertical-align: middle; }.order-review-table tbody tr { cursor: pointer; }.order-review-table tbody tr:hover { background: #f7fbfa; }.order-review-table tbody tr.selected { background: #eef8f5; box-shadow: inset 3px 0 #126b66; }.order-review-table tbody tr.abnormal td:first-child { border-left-color: #cf7c29; }
+.order-status { display: inline-flex; align-items: center; gap: 5px; color: #60737a; font-size: 9px; font-weight: 750; white-space: nowrap; }.order-status i { width: 6px; height: 6px; border-radius: 50%; background: #708188; }.order-status.warning { color: #9a651c; }.order-status.warning i { background: #c38225; }.order-status.danger { color: #ae3640; }.order-status.danger i { background: #b83c46; }
+.patient-cell, .drug-cell, .auto-result { display: grid; gap: 3px; min-width: 0; }.patient-cell strong, .drug-cell strong { overflow: hidden; color: #263f47; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.patient-cell span, .drug-cell span, .drug-cell small, .auto-result span { overflow: hidden; color: #75848a; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.drug-cell strong { color: #173f47; font-size: 12px; }.drug-cell small { color: #a1adb0; }.audit-result { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1.4; }.auto-result strong { color: #365960; font-size: 10px; }.order-window { color: #5f737a; font-size: 9px; line-height: 1.45; }
+.order-loading { padding: 24px; }.order-empty { display: grid; place-items: center; align-content: center; min-height: 460px; gap: 9px; color: #718088; }.order-empty strong { color: #38545e; font-size: 13px; }.order-empty span { font-size: 10px; }
+.order-detail-panel { overflow: auto; padding: 15px; }.order-detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #e1e9e9; }.order-detail-heading h2 { margin: 5px 0 3px; color: #173f47; font-size: 19px; }.order-detail-heading p { margin: 0; color: #75848a; font-size: 9px; }
+.detail-patient-brief { display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 9px; align-items: center; margin-top: 12px; padding: 10px; background: #f4f8f8; }.detail-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #dceeea; color: #126b66; font-size: 13px; font-weight: 800; }.detail-patient-brief div:last-child { display: grid; gap: 3px; }.detail-patient-brief strong { color: #294951; font-size: 11px; }.detail-patient-brief span, .detail-patient-brief small { color: #6c7c82; font-size: 9px; }
+.order-fact-table { display: grid; gap: 0; margin-top: 12px; border: 1px solid #dce7e7; border-radius: 5px; overflow: hidden; }.order-fact-table div { display: grid; grid-template-columns: 74px minmax(0,1fr) 68px; gap: 8px; align-items: center; padding: 8px 9px; border-bottom: 1px solid #e7eeee; }.order-fact-table div:last-child { border-bottom: 0; }.order-fact-table dt { color: #667a81; font-size: 9px; font-weight: 750; }.order-fact-table dd { margin: 0; color: #294951; font-size: 10px; font-weight: 700; }.order-fact-table small { color: #a06c1a; font-size: 8px; text-align: right; }
+.auto-audit-section, .same-day-medications { margin-top: 14px; }.detail-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }.detail-section-heading h3 { margin: 3px 0 0; color: #294951; font-size: 13px; }.detail-section-heading > span { color: #74848b; font-size: 9px; }.auto-audit-badge { padding: 4px 7px; border-radius: 4px; background: #edf7f3; color: #28745b; font-size: 9px; font-weight: 800; }.auto-audit-badge.warning { background: #fff4e5; color: #9a651c; }
+.audit-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }.audit-result-grid > div { display: grid; gap: 4px; padding: 9px; border: 1px solid #e0e9e9; border-radius: 5px; background: #fbfdfd; }.audit-result-grid span { color: #6d7e84; font-size: 9px; }.audit-result-grid strong { font-size: 12px; }.audit-result-grid small { color: #8a999e; font-size: 8px; line-height: 1.4; }.rule-hit-compact { display: flex; align-items: flex-start; gap: 7px; margin-top: 8px; padding: 9px; background: #fff8eb; color: #95631c; }.rule-hit-compact > div { display: grid; gap: 3px; }.rule-hit-compact strong { font-size: 10px; }.rule-hit-compact p { margin: 0; color: #856d4a; font-size: 9px; line-height: 1.45; }
+.same-day-drug-list { display: grid; gap: 5px; }.same-day-drug-list div { display: flex; align-items: center; gap: 7px; padding: 8px 9px; border: 1px solid #e1e9e9; border-radius: 4px; color: #385961; }.same-day-drug-list div.current { border-color: #abd2c3; background: #edf8f4; color: #126b66; }.same-day-drug-list strong { font-size: 10px; }.same-day-drug-list span { margin-left: auto; color: #829095; font-size: 8px; }.detail-muted { color: #839197; font-size: 9px; }
+.pharmacist-resolution { display: grid; gap: 9px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #dfe8e8; }.pharmacist-resolution label { display: grid; gap: 5px; }.pharmacist-resolution label > span { color: #62757c; font-size: 9px; }.pharmacist-resolution em { color: #b53740; font-style: normal; }.resolve-feedback { color: #28745b; font-size: 9px; }
+@media (max-width: 1200px) { .review-workspace-new { grid-template-columns: 1fr; }.order-detail-panel { max-height: none; }.department-bar, .review-page-heading, .order-table-toolbar { align-items: flex-start; flex-direction: column; }.department-stats { justify-content: flex-start; }.order-table-filters { width: 100%; }.order-table-filters .el-input { flex: 1; width: auto; } }
 </style>
